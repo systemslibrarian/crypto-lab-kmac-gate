@@ -126,9 +126,9 @@ built here.)
 ```bash
 npm ci
 npm run dev            # http://localhost:5173/crypto-lab-kmac-gate/
-npm test               # 237 unit tests, including 21 spec KATs
+npm test               # 257 unit tests, including 21 spec KATs
 npm run build          # tsc --noEmit && vite build
-npm run test:browser   # 48 Playwright tests: axe WCAG gate + claims suite
+npm run test:browser   # 58 Playwright tests: axe WCAG gate + claims suite
 ```
 
 `npm run test:browser` builds first, then serves `dist/` on port 4646, so what is tested is what
@@ -147,7 +147,7 @@ ships.
 
 ## Build & Verify
 
-**237 unit tests (Vitest), of which 21 are spec known-answer tests.**
+**257 unit tests (Vitest), of which 21 are spec known-answer tests.**
 
 | Suite | File | What it covers |
 | --- | --- | --- |
@@ -156,12 +156,13 @@ ships.
 | SP 800-185 KATs | `src/keccak/sp800-185.test.ts` | 4 cSHAKE + 11 KMAC/KMACXOF sample values, the encoding functions, the SHAKE fallback |
 | Cross-oracle | `src/keccak/oracle.test.ts` | agreement with **two independent implementations** — OpenSSL via `node:crypto` for FIPS 202, `js-sha3` for SP 800-185 — across message lengths straddling both rate boundaries |
 | Architecture | `src/keccak/architecture.test.ts` | the "one sponge" claim, behaviourally and structurally |
-| Demo layer | `src/demo/*.test.ts` | sign/verify accept and every reject path, verdict retirement and the no-op guard, trace fidelity, the run report's parts-sum-to-whole |
+| Demo layer | `src/demo/*.test.ts` | tag/verify accept and every reject path, verdict retirement and the no-op guard, trace fidelity, the run report's parts-sum-to-whole |
+| Pipeline spine | `src/demo/pipeline.test.ts` | the Keccak-f[1600] step is identical in all four modes; a step is marked changed only when its value really differs; padding offsets come from structural metadata, including for messages containing `0x06`/`0x1f`/`0x04`/`0x80` as data; capacity lanes are zero before the permutation and non-zero after |
 
 `js-sha3` and `node:crypto` are **test-only oracles**. Neither is imported by the app bundle,
 which is hand-rolled down to the permutation.
 
-**48 browser tests (Playwright).** `e2e/a11y.spec.ts` runs `@axe-core/playwright` against the
+**58 browser tests (Playwright).** `e2e/a11y.spec.ts` runs `@axe-core/playwright` against the
 production build for zero WCAG 2.1 A/AA violations in **both themes** across **six interaction
 states** each (first paint, mid-trace, cSHAKE fallback, tag accepted, verdict retired, tag
 rejected), plus an arithmetic contrast sweep that measures every text node against the surface it
@@ -176,7 +177,7 @@ typechecked build, and the browser suite before publishing.
 ## Performance
 
 Every mode is computed synchronously on each keystroke. A typical render runs the permutation
-about 26 times across all four stages — well under a millisecond of Keccak work — so the page
+about 26 times per render — 7 for the four mode operations themselves and 19 more for the side-by-side comparisons the page computes as evidence — well under a millisecond of Keccak work — so the page
 recomputes everything from scratch rather than caching, which is also what keeps any two panels
 from describing different runs. The BigInt implementation is considerably slower than an
 optimised 32-bit-lane one; that is a deliberate trade for readability.
