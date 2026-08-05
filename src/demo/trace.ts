@@ -8,12 +8,7 @@
 
 import { toHex } from '../keccak/bytes'
 import { sha3_256, shake, shakeRate, type Strength } from '../keccak/fips202'
-import {
-  permutationCallCount,
-  resetPermutationCallCount,
-  stateToBytes,
-  type KeccakState,
-} from '../keccak/keccak-f1600'
+import { permutationCallCount, stateToBytes, type KeccakState } from '../keccak/keccak-f1600'
 import type { SpongeEvent } from '../keccak/sponge'
 import { cshake, kmac, type KmacParams } from '../keccak/sp800-185'
 
@@ -57,7 +52,10 @@ function collect(
   fn: (observe: (e: SpongeEvent) => void) => Uint8Array,
 ): TraceResult {
   const steps: TraceStep[] = []
-  resetPermutationCallCount()
+  // Measure this run as a DELTA on the one shared counter rather than
+  // resetting it, so several traced runs can be added up on the page and the
+  // parts genuinely sum to the whole.
+  const before = permutationCallCount()
   const output = fn((event) => {
     steps.push({
       kind: event.kind,
@@ -72,7 +70,7 @@ function collect(
     output,
     rateBytes,
     capacityBytes: 200 - rateBytes,
-    permutationCalls: permutationCallCount(),
+    permutationCalls: permutationCallCount() - before,
     suffix,
   }
 }
