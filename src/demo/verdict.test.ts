@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { utf8 } from '../keccak/bytes'
 import type { KmacParams } from '../keccak/sp800-185'
-import { signMessage, verifyMessage } from './mac'
+import { computeTag, verifyMessage } from './mac'
 import { changedFields, paramsEqual, staleness, tagDrift, type VerdictRecord } from './verdict'
 
 const params = (over: Partial<KmacParams> = {}): KmacParams => ({
@@ -15,7 +15,7 @@ const params = (over: Partial<KmacParams> = {}): KmacParams => ({
 })
 
 const record = (p: KmacParams): VerdictRecord => {
-  const { tag } = signMessage(p)
+  const { tag } = computeTag(p)
   return { params: p, presentedTag: tag, outcome: verifyMessage(p, tag, p) }
 }
 
@@ -103,12 +103,12 @@ describe('verdict retirement', () => {
 describe('tag drift', () => {
   it('a tag over the current message has not drifted', () => {
     const p = params()
-    expect(tagDrift({ params: p, tag: signMessage(p).tag }, p).drifted).toBe(false)
+    expect(tagDrift({ params: p, tag: computeTag(p).tag }, p).drifted).toBe(false)
   })
 
   it('after tampering the tag is flagged as covering different bytes', () => {
     const p = params()
-    const signed = { params: p, tag: signMessage(p).tag }
+    const signed = { params: p, tag: computeTag(p).tag }
     const drift = tagDrift(signed, params({ message: utf8('transfer 900 to mallory') }))
     expect(drift.drifted).toBe(true)
     expect(drift.changed).toEqual(['message'])
@@ -118,7 +118,7 @@ describe('tag drift', () => {
     // The tamper exhibit depends on this: the old tag must survive the edit,
     // because verifying it against the new message is the whole lesson.
     const p = params()
-    const signed = { params: p, tag: signMessage(p).tag }
+    const signed = { params: p, tag: computeTag(p).tag }
     const tampered = params({ message: utf8('transfer 900 to mallory') })
     expect(tagDrift(signed, tampered).drifted).toBe(true)
     const outcome = verifyMessage(tampered, signed.tag, signed.params)

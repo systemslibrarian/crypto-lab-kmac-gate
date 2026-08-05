@@ -1,5 +1,10 @@
 /**
- * The KMAC sign/verify layer the "break it yourself" exhibit drives.
+ * The KMAC tag/verify layer the "break it yourself" exhibit drives.
+ *
+ * Terminology matters here: KMAC produces a TAG, not a signature. The same
+ * secret key both produces and checks it, so a verifying tag says "someone
+ * holding this key authenticated these bytes" — never "this person signed
+ * it". There is no non-repudiation to be had from a MAC.
  *
  * Everything here goes through the real `kmac()` — verification recomputes the
  * tag from scratch and compares. There is no shortcut path, no stored "is this
@@ -17,8 +22,8 @@ export interface TagRun {
   tagHex: string
 }
 
-/** Produce a tag over the given parameters. */
-export function signMessage(params: KmacParams): TagRun {
+/** Compute a tag over the given parameters. */
+export function computeTag(params: KmacParams): TagRun {
   const tag = kmac(params)
   return { params, tag, tagHex: toHex(tag) }
 }
@@ -42,7 +47,7 @@ export interface VerifyOutcome {
   /** Byte index where presented and recomputed first diverge, or -1. */
   divergesAtByte: number
   /**
-   * What actually changed between signing and verifying, when we know — the
+   * What actually changed between tagging and verifying, when we know — the
    * exhibit tracks the original parameters, so it can name the cause instead of
    * guessing. A real verifier holding only (key, message, tag) can NOT do this:
    * it learns only "these bytes did not authenticate", never which part moved.
@@ -117,7 +122,7 @@ export const VERIFY_LEARNS = [
 ] as const
 
 export const VERIFY_DOES_NOT_LEARN = [
-  'who computed it — anyone holding the key could have, including you',
+  'who computed it — this is a MAC, not a signature: anyone holding the shared key could have produced it, including you',
   'when it was computed: KMAC has no timestamp, so a replayed old message and tag verify just fine',
   'that the message is true, authorised, or safe to act on',
   'anything about a message whose tag you have not checked',

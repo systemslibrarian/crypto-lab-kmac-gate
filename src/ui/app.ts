@@ -7,18 +7,20 @@
  * drifting apart.
  */
 
-import { equalBytes, toHex } from '../keccak/bytes'
+import { toHex } from '../keccak/bytes'
 import type { Strength } from '../keccak/fips202'
 import type { KmacParams } from '../keccak/sp800-185'
-import { CAUSE_TEXT, signMessage, verifyMessage } from '../demo/mac'
+import { CAUSE_TEXT, computeTag, verifyMessage } from '../demo/mac'
 import { contrast, naiveSha256Mac } from '../demo/naive-mac'
 import { DEFAULT_INPUTS, computeRun, type DemoInputs, type RunReport } from '../demo/run'
 import { staleness, tagDrift, type SignedArtifact, type VerdictRecord } from '../demo/verdict'
 import { hexBox, verdict } from './components'
 import { el, field, liveRegion, replace, select } from './dom'
+import { pipelineStages } from '../demo/pipeline'
 import {
   renderContrastPanel,
   renderCorePanel,
+  renderSpine,
   renderCshakeOutput,
   renderIntro,
   renderKmacLive,
@@ -167,7 +169,7 @@ export function mount(root: HTMLElement): void {
     'STAGE 3',
     'cshake',
     'cSHAKE — the same squeeze, in its own namespace',
-    'Two systems using SHAKE for different jobs would produce interchangeable output, and a value meant for one could be replayed into the other. cSHAKE fixes that by absorbing a framed label first. Edit the customization string and watch the output become unrelated.',
+    'Two systems using SHAKE for different jobs would produce interchangeable output, and a value meant for one could be replayed into the other. cSHAKE fixes that by absorbing a framed label first. Edit the customization string and watch the output change completely — then clear both fields and watch the run fall back onto the plain SHAKE route.',
     el(
       'div',
       { class: 'controls' },
@@ -217,7 +219,7 @@ export function mount(root: HTMLElement): void {
   const kmacCustomInput = el('input', { type: 'text', spellcheck: 'false' }) as HTMLInputElement
   kmacCustomInput.value = state.inputs.kmacCustom
 
-  const signBtn = el('button', { type: 'button', class: 'primary', text: 'Sign message' })
+  const signBtn = el('button', { type: 'button', class: 'primary', text: 'Compute tag' })
   const verifyBtn = el('button', { type: 'button', text: 'Verify tag' })
   const tamperBtn = el('button', { type: 'button', text: 'Tamper with the message' })
   const resetBtn = el('button', { type: 'button', text: 'Clear tag' })
@@ -226,7 +228,7 @@ export function mount(root: HTMLElement): void {
     'STAGE 4',
     'kmac',
     'KMAC — key the sponge, then try to break it',
-    'Absorb a key before the message and the same sponge becomes a message authentication code. Sign a message, verify it, then change one character and verify again — the rejection you get is the real primitive refusing, not a warning banner.',
+    'Frame a key into the sponge ahead of the message and the same machine becomes a message authentication code. Compute a tag, verify it, then change one character and verify again — the rejection you get is the real primitive refusing, not a warning banner. Note this is a MAC, not a signature: the same secret key both makes and checks the tag, so anyone holding it could have produced what you are checking.',
     el(
       'div',
       { class: 'controls' },
@@ -245,15 +247,42 @@ export function mount(root: HTMLElement): void {
   )
 
   // --- assemble -----------------------------------------------------------
+  // The four stages are presented as ONE pipeline, re-parameterised four
+  // times, rather than four independent exhibits — the same claim the shared
+  // permutation counter makes in numbers, made in layout.
+  const connector = (from: string, to: string): HTMLElement =>
+    el(
+      'p',
+      { class: 'stage-connector', 'data-from': from, 'data-to': to },
+      el('span', { class: 'connector-rule', 'aria-hidden': 'true' }),
+      el('span', {
+        class: 'connector-text',
+        text: `Same sponge, same permutation — re-parameterised from ${from} to ${to}`,
+      }),
+    )
+
+  const pipeline = el(
+    'section',
+    { class: 'pipeline-wrap', id: 'pipeline', 'aria-labelledby': 'pipeline-h' },
+    el('h2', { id: 'pipeline-h', class: 'pipeline-h', text: 'The pipeline, four times over' }),
+    el('p', { class: 'lede' },
+      'Each stage below is a fresh run of the same sponge over the same permutation. Watch the spine at the top of each one: the steps that change are marked, and the Keccak-f[1600] step never does.',
+    ),
+    stage1,
+    connector('SHA3-256', 'SHAKE'),
+    stage2,
+    connector('SHAKE', 'cSHAKE'),
+    stage3,
+    connector('cSHAKE', 'KMAC'),
+    stage4,
+  )
+
   replace(
     root,
     hero,
     renderIntro(),
     el('div', { id: 'core-panel' }, coreOut),
-    stage1,
-    stage2,
-    stage3,
-    stage4,
+    pipeline,
     el('div', { id: 'contrast-panel' }, contrastOut),
     renderScopePanel(),
   )
@@ -272,7 +301,7 @@ export function mount(root: HTMLElement): void {
         verdict(
           'info',
           'No tag yet',
-          'Press “Sign message” to compute a KMAC tag over the key and message above.',
+          'Press “Compute tag” to run KMAC over the key and message above.',
         ),
       )
       return
@@ -290,7 +319,7 @@ export function mount(root: HTMLElement): void {
         ? verdict(
             'info',
             'This tag covers the earlier inputs, not what is on screen now',
-            `It was computed before ${drift.changed.join(', ')} changed. That is deliberate — keeping it is what lets you check the changed message against it. Press “Verify tag” to do that, or “Sign message” to tag the current inputs.`,
+            `It was computed before ${drift.changed.join(', ')} changed. That is deliberate — keeping it is what lets you check the changed message against it. Press “Verify tag” to do that, or “Compute tag” to authenticate the current inputs.`,
           )
         : el('p', {
             class: 'hint',
@@ -327,7 +356,7 @@ export function mount(root: HTMLElement): void {
         verdict(
           'ok',
           'Tag accepted — recomputed tag matches, byte for byte',
-          'The verifier recomputed KMAC over the message on screen under the key on screen and got exactly the held tag. That means these bytes were authenticated by someone holding this key; it does not say when, or by whom.',
+          'The verifier recomputed KMAC over the message on screen under the key on screen and got exactly the held tag. That means these bytes were authenticated by someone holding this key. Because that key is shared, it does not identify who — you hold it too — and it does not say when, so a replayed old message and tag would also verify.',
         ),
         el('p', { class: 'out-label', text: 'Recomputed by the verifier' }),
         el(
@@ -359,13 +388,27 @@ export function mount(root: HTMLElement): void {
     )
   }
 
+  /**
+   * The contrast panel is the page's one asynchronous value (WebCrypto
+   * SHA-256). A slow digest must never be painted beside a newer KMAC report:
+   * that would put two different runs on one screen and let a tag outlive the
+   * inputs that produced it.
+   *
+   * A monotonically increasing token settles it for EVERY parameter, not just
+   * the message — guarding the message alone let a key change slip through,
+   * because the naive MAC is computed over key ‖ message.
+   */
+  let renderToken = 0
   async function renderContrast(): Promise<void> {
+    const token = ++renderToken
     const params = currentParams()
+    const capturedReport = report
     const facts = contrast(params.strength, params.outputBits)
     const naive = await naiveSha256Mac(params.key, params.message)
-    // Guard against an out-of-order resolution overwriting a newer render.
-    if (!equalBytes(params.message, currentParams().message)) return
-    replace(contrastOut, renderContrastPanel(report, naive, facts))
+    // A newer render started while we were awaiting: drop this result rather
+    // than paint it next to values it does not belong to.
+    if (token !== renderToken) return
+    replace(contrastOut, renderContrastPanel(capturedReport, naive, facts))
     document.body.dataset.ready = 'true'
   }
 
@@ -373,11 +416,12 @@ export function mount(root: HTMLElement): void {
     report = computeRun(state.inputs)
     state.sha3Step = Math.min(state.sha3Step, report.sha3.trace.steps.length - 1)
 
+    const stages = pipelineStages(report)
     replace(coreOut, renderCorePanel(report))
-    replace(sha3Out, renderSha3Output(report, state.sha3Step))
-    replace(shakeOut, renderShakeOutput(report))
-    replace(cshakeOut, renderCshakeOutput(report))
-    replace(kmacLiveOut, renderKmacLive(report))
+    replace(sha3Out, renderSpine(stages, 0), renderSha3Output(report, state.sha3Step))
+    replace(shakeOut, renderSpine(stages, 1), renderShakeOutput(report))
+    replace(cshakeOut, renderSpine(stages, 2), renderCshakeOutput(report))
+    replace(kmacLiveOut, renderSpine(stages, 3), renderKmacLive(report))
 
     stepPrev.disabled = state.sha3Step === 0
     stepFirst.disabled = state.sha3Step === 0
@@ -455,7 +499,7 @@ export function mount(root: HTMLElement): void {
 
   signBtn.addEventListener('click', () => {
     const params = currentParams()
-    state.signed = { params, tag: signMessage(params).tag }
+    state.signed = { params, tag: computeTag(params).tag }
     // A new tag says nothing about the old verification.
     state.held = null
     render()

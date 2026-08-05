@@ -51,7 +51,7 @@ const STATES = {
 
   /** A tag signed and accepted. */
   async accepted(page: Page): Promise<void> {
-    await page.locator('button:has-text("Sign message")').click()
+    await page.locator('button:has-text("Compute tag")').click()
     await page.locator('button:has-text("Verify tag")').click()
     await expect(page.locator('#kmac-verdict-panel .verdict-ok')).toHaveCount(1)
   },

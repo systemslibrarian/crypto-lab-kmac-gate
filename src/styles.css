@@ -698,6 +698,193 @@ body {
   margin-bottom: 0.3rem;
 }
 
+/* --- the pipeline spine -------------------------------------------------- */
+
+.pipeline-wrap {
+  border-left: 3px solid var(--accent);
+  padding-left: clamp(0.5rem, 1.6vw, 1rem);
+  margin: 1.5rem 0;
+}
+
+.pipeline-h {
+  font-size: clamp(1.15rem, 2.2vw, 1.4rem);
+  margin: 0 0 0.4rem;
+}
+
+.stage-connector {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.25rem 0;
+  padding: 0 0.25rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.connector-rule {
+  flex: 0 0 auto;
+  width: 2px;
+  height: 1.6rem;
+  background-color: var(--accent);
+  border-radius: 2px;
+}
+
+.spine {
+  margin: 0 0 1rem;
+}
+
+.spine-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.4rem;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: spine;
+}
+
+.spine-step {
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  background-color: var(--panel-2);
+  min-width: 0;
+}
+
+.spine-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.spine-value {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: var(--text);
+  margin-top: 0.15rem;
+  overflow-wrap: anywhere;
+}
+
+.spine-tag {
+  display: inline-block;
+  margin-top: 0.3rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--warn-ink);
+  border: 1px solid var(--warn-border);
+  background-color: var(--warn-tint);
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+}
+
+.spine-changed {
+  border-color: var(--warn-border);
+}
+
+.spine-shared {
+  border-color: var(--accent);
+  background-color: var(--accent-tint);
+}
+
+.spine-tag-shared {
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  background-color: transparent;
+}
+
+.pipeline-table .cell-changed {
+  background-color: var(--warn-tint);
+  color: var(--warn-ink);
+  font-weight: 700;
+}
+
+.pipeline-table tbody tr[data-step='permutation'] {
+  background-color: var(--accent-tint);
+}
+
+.pipeline-table tbody tr[data-step='permutation'] td,
+.pipeline-table tbody tr[data-step='permutation'] th {
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+/* --- the cSHAKE two-route branch ----------------------------------------- */
+
+.route-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.6rem;
+  margin: 0.35rem 0 0.6rem;
+  padding: 0;
+  list-style: none;
+}
+
+.route {
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  background-color: var(--panel-2);
+}
+
+.route-active {
+  border-color: var(--accent);
+  border-left-width: 5px;
+  background-color: var(--accent-tint);
+}
+
+.route-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin: 0 0 0.25rem;
+}
+
+.route-title {
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.route-icon {
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.route-state {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.route-active .route-state {
+  color: var(--accent-ink);
+}
+
+.route-cond {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.route-steps {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.83rem;
+  color: var(--text-dim);
+}
+
+.route-steps li {
+  margin-bottom: 0.15rem;
+}
+
 /* --- scripture footer ---------------------------------------------------- */
 
 .scripture-footer {
@@ -745,4 +932,12 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
+}
+
+.spine-count {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: 0.15rem;
 }

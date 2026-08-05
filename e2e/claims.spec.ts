@@ -90,7 +90,7 @@ test('the cSHAKE output matches an independent implementation', async ({ page })
 })
 
 test('the held KMAC tag matches an independent implementation', async ({ page }) => {
-  await page.locator('button:has-text("Sign message")').click()
+  await page.locator('button:has-text("Compute tag")').click()
   const key = await inputValue(page, '#kmac-key')
   const message = await inputValue(page, '#kmac-message')
   const custom = await inputValue(page, '#kmac-custom')
@@ -101,7 +101,7 @@ test('the held KMAC tag matches an independent implementation', async ({ page })
 test('KMAC256 at 512 bits also matches', async ({ page }) => {
   await page.locator('#kmac-strength').selectOption('256')
   await page.locator('#kmac-length').selectOption('512')
-  await page.locator('button:has-text("Sign message")').click()
+  await page.locator('button:has-text("Compute tag")').click()
   const key = await inputValue(page, '#kmac-key')
   const message = await inputValue(page, '#kmac-message')
   const shown = await hexOf(page, '#held-tag')
@@ -123,15 +123,175 @@ test('the naive MAC panel shows a real SHA-256 of key ‖ message', async ({ pag
 // Cross-checks: the page must agree with itself
 // ---------------------------------------------------------------------------
 
-test('the permutation total equals the sum of the per-stage parts', async ({ page }) => {
+test('the permutation counts separate one operation from the page proof workload', async ({ page }) => {
+  // The per-stage figures must be the cost of ONE run of that mode. The extra
+  // runs the page makes to prove its comparisons are counted separately, and
+  // the two together must account for the shared counter exactly.
   const parts = await page.locator('#perm-breakdown li[data-stage] b').allInnerTexts()
-  const total = Number(await page.locator('#perm-total').innerText())
-  const sum = parts.map(Number).reduce((a, b) => a + b, 0)
   expect(parts).toHaveLength(4)
-  expect(sum).toBe(total)
-  // ...and the prose sentence beneath must state the same arithmetic.
+  const operationSum = parts.map(Number).reduce((a, b) => a + b, 0)
+
   const sentence = await page.locator('#perm-sum-check').innerText()
-  expect(sentence).toContain(`${parts.join(' + ')} = ${sum}`)
+  const m = sentence.match(/(\d+) \+ (\d+) = (\d+)/)
+  expect(m, `expected an arithmetic statement, got: ${sentence}`).toBeTruthy()
+  const [, statedOps, statedProofs, statedTotal] = m!.map(Number)
+
+  expect(statedOps).toBe(operationSum)
+  expect(statedOps + statedProofs).toBe(statedTotal)
+  expect(Number(await page.locator('#perm-total').innerText())).toBe(statedTotal)
+  // The proof workload is real and non-trivial — it must not be folded away.
+  expect(statedProofs).toBeGreaterThan(0)
+})
+
+test('a stage count is the cost of that stage alone, not the whole render', async ({ page }) => {
+  const total = Number(await page.locator('#perm-total').innerText())
+  const kmac = Number(await page.locator('#kmac-perms').innerText())
+  const sha3 = Number(await page.locator('#sha3-perms').innerText())
+  expect(sha3).toBeGreaterThan(0)
+  expect(kmac).toBeGreaterThan(0)
+  expect(kmac).toBeLessThan(total)
+  // The stage panel and the core breakdown must agree about that stage.
+  const fromBreakdown = await page
+    .locator('#perm-breakdown li[data-stage="KMAC"] b')
+    .innerText()
+  expect(Number(fromBreakdown)).toBe(kmac)
+})
+
+test('the pipeline table shows the permutation row identical in all four modes', async ({ page }) => {
+  // The demo's thesis, checked against the rendered table rather than trusted.
+  const cells = await page
+    .locator('#pipeline-table tbody tr[data-step="permutation"] td')
+    .allInnerTexts()
+  expect(cells).toHaveLength(4)
+  expect(new Set(cells.map((c) => c.trim())).size).toBe(1)
+  // ...and that row must never be marked as a change from the mode before it.
+  const changed = await page
+    .locator('#pipeline-table tbody tr[data-step="permutation"] td[data-changed="true"]')
+    .count()
+  expect(changed).toBe(0)
+})
+
+test('a marked pipeline cell really does differ from the cell to its left', async ({ page }) => {
+  const mismatches = await page.evaluate(() => {
+    const bad: string[] = []
+    for (const row of Array.from(document.querySelectorAll('#pipeline-table tbody tr'))) {
+      const cells = Array.from(row.querySelectorAll('td'))
+      cells.forEach((cell, i) => {
+        const claimsChanged = cell.getAttribute('data-changed') === 'true'
+        if (i === 0) {
+          if (claimsChanged) bad.push(`${row.getAttribute('data-step')}: first column marked changed`)
+          return
+        }
+        const differs = cells[i - 1].getAttribute('data-value') !== cell.getAttribute('data-value')
+        if (claimsChanged !== differs) {
+          bad.push(`${row.getAttribute('data-step')} col ${i}: marked ${claimsChanged}, differs ${differs}`)
+        }
+      })
+    }
+    return bad
+  })
+  expect(mismatches).toEqual([])
+})
+
+test('the padding marker points at the real suffix, not a matching message byte', async ({ page }) => {
+  // A message containing 0x06 as DATA must not have its own byte highlighted
+  // as the SHA-3 domain suffix.
+  await page.locator('#msg-input').fill('ab\u0006cd')
+  const marks = await page.evaluate(() => {
+    const box = document.querySelector('#sha3-trace .hexbox')
+    if (!box) return null
+    const bytes = (box.textContent ?? '').replace(/\([^)]*\)/g, '').trim().split(/\s+/)
+    const marked = Array.from(box.querySelectorAll('mark')).map((m) => ({
+      hex: (m.textContent ?? '').replace(/\([^)]*\)/g, '').trim(),
+      label: m.querySelector('span')?.textContent ?? '',
+    }))
+    return { firstBytes: bytes.slice(0, 8), marked }
+  })
+  expect(marks).not.toBeNull()
+  // The message is 61 62 06 63 64, so the true suffix is the SIXTH byte.
+  expect(marks!.firstBytes.slice(0, 6)).toEqual(['61', '62', '06', '63', '64', '06'])
+  const suffixMark = marks!.marked.find((m) => m.label.includes('domain suffix'))
+  expect(suffixMark).toBeTruthy()
+  expect(suffixMark!.hex).toBe('06')
+  // Exactly one byte may claim to be the domain suffix.
+  expect(marks!.marked.filter((m) => m.label.includes('domain suffix'))).toHaveLength(1)
+})
+
+test('the cSHAKE branch shows exactly one active route, matching the inputs', async ({ page }) => {
+  await page.locator('#cshake-custom').fill('Invoices/v1')
+  await page.locator('#cshake-name').fill('')
+  await expect(page.locator('#cshake-routes .route[data-active="true"]')).toHaveCount(1)
+  await expect(page.locator('#cshake-routes .route-b[data-active="true"]')).toHaveCount(1)
+  await expect(page.locator('#cshake-route-note')).toContainText('Route B')
+
+  await page.locator('#cshake-custom').fill('')
+  await expect(page.locator('#cshake-routes .route[data-active="true"]')).toHaveCount(1)
+  await expect(page.locator('#cshake-routes .route-a[data-active="true"]')).toHaveCount(1)
+  await expect(page.locator('#cshake-route-note')).toContainText('Route A')
+  // The active route must agree with the suffix the run actually used.
+  await expect(page.locator('#cshake-routes')).toContainText('0x1F')
+})
+
+test('RACE: a slow naive digest cannot be painted beside a newer key', async ({ page }) => {
+  // The contrast panel awaits WebCrypto. Changing the key while that is in
+  // flight must not leave a tag computed under the OLD key on screen.
+  const key = 'k' + 'z'.repeat(40)
+  await page.locator('#kmac-key').fill('first-key-value')
+  await page.locator('#kmac-key').fill(key)
+  await expect(page.locator('#naive-tag')).toHaveAttribute('data-hex', /.+/)
+  const shown = await hexOf(page, '#naive-tag')
+  const message = await inputValue(page, '#kmac-message')
+  expect(shown).toBe(
+    createHash('sha256')
+      .update(Buffer.concat([Buffer.from(key, 'utf8'), Buffer.from(message, 'utf8')]))
+      .digest('hex'),
+  )
+})
+
+test('RACE: rapid key edits settle on a tag for the final key', async ({ page }) => {
+  for (const k of ['aaa', 'bbb', 'ccc', 'ddd', 'eee']) {
+    await page.locator('#kmac-key').fill(k)
+  }
+  const message = await inputValue(page, '#kmac-message')
+  await expect
+    .poll(async () => hexOf(page, '#naive-tag'))
+    .toBe(
+      createHash('sha256')
+        .update(Buffer.concat([Buffer.from('eee', 'utf8'), Buffer.from(message, 'utf8')]))
+        .digest('hex'),
+    )
+})
+
+test('the KMAC stage never calls a MAC a signature', async ({ page }) => {
+  const text = await page.locator('#stage-kmac').innerText()
+  // No control or verdict may present the operation as signing...
+  expect(text).not.toMatch(/\bsign(ed|ing|s)?\b/i)
+  expect(text).toMatch(/Compute tag/)
+  // ...and the only permitted use of "signature" is the explicit disclaimer.
+  const signatureUses = text.match(/[^.]*\bsignature\b[^.]*/gi) ?? []
+  expect(signatureUses.length).toBeGreaterThan(0)
+  for (const use of signatureUses) expect(use.toLowerCase()).toContain('not a signature')
+})
+
+test('the capacity is described as unrecoverable, never as untouched', async ({ page }) => {
+  const text = await page.locator('#app').innerText()
+  // The false claim the wording must never make.
+  expect(text).not.toMatch(/never written by input/i)
+  expect(text).not.toMatch(/no input or output ever touches/i)
+  expect(text).not.toMatch(/cannot see or touch/i)
+  // The true one it must make.
+  expect(text.toLowerCase()).toMatch(/never emitted|never given out|never output/)
+})
+
+test('the trace shows capacity lanes changing, matching what the copy claims', async ({ page }) => {
+  // The copy says the permutation mixes input into the capacity. The lane grid
+  // must actually show that, or the page contradicts itself.
+  const nonZeroCapacityLanes = await page.evaluate(() => {
+    const cells = Array.from(document.querySelectorAll('#sha3-trace .lane-capacity'))
+    return cells.filter((c) => !/^0{16}$/.test((c.textContent ?? '').replace(/^.*?:\s*/, '').trim()))
+      .length
+  })
+  expect(nonZeroCapacityLanes).toBeGreaterThan(0)
 })
 
 test('the permutation count changes when the work changes', async ({ page }) => {
@@ -232,7 +392,7 @@ test('the length-binding panel claims binding only when the bytes show it', asyn
 // ---------------------------------------------------------------------------
 
 test('a tampered message is rejected, and the page names the message as the cause', async ({ page }) => {
-  await page.locator('button:has-text("Sign message")').click()
+  await page.locator('button:has-text("Compute tag")').click()
   await page.locator('button:has-text("Verify tag")').click()
   await expect(page.locator('#kmac-verdict-panel .verdict-ok')).toHaveCount(1)
 
@@ -247,7 +407,7 @@ test('a tampered message is rejected, and the page names the message as the caus
 })
 
 test('the rejection shows a recomputed tag that really differs from the held one', async ({ page }) => {
-  await page.locator('button:has-text("Sign message")').click()
+  await page.locator('button:has-text("Compute tag")').click()
   const held = await hexOf(page, '#held-tag')
   await page.locator('button:has-text("Tamper with the message")').click()
   await page.locator('button:has-text("Verify tag")').click()
@@ -262,21 +422,21 @@ test('the rejection shows a recomputed tag that really differs from the held one
 })
 
 test('a changed key is rejected and named', async ({ page }) => {
-  await page.locator('button:has-text("Sign message")').click()
+  await page.locator('button:has-text("Compute tag")').click()
   await page.locator('#kmac-key').fill('a-different-key')
   await page.locator('button:has-text("Verify tag")').click()
   await expect(page.locator('#kmac-verdict-panel .verdict-bad')).toContainText('the key changed')
 })
 
 test('a changed output length is rejected and named', async ({ page }) => {
-  await page.locator('button:has-text("Sign message")').click()
+  await page.locator('button:has-text("Compute tag")').click()
   await page.locator('#kmac-length').selectOption('512')
   await page.locator('button:has-text("Verify tag")').click()
   await expect(page.locator('#kmac-verdict-panel .verdict-bad')).toContainText('KMAC binds L into the tag')
 })
 
 test('an appended message is rejected — no length extension', async ({ page }) => {
-  await page.locator('button:has-text("Sign message")').click()
+  await page.locator('button:has-text("Compute tag")').click()
   const original = await inputValue(page, '#kmac-message')
   await page.locator('#kmac-message').fill(`${original} and 500 to mallory`)
   await page.locator('button:has-text("Verify tag")').click()
@@ -288,7 +448,7 @@ test('an appended message is rejected — no length extension', async ({ page })
 // ---------------------------------------------------------------------------
 
 test('editing the message retires the verdict, says so, and names the control', async ({ page }) => {
-  await page.locator('button:has-text("Sign message")').click()
+  await page.locator('button:has-text("Compute tag")').click()
   await page.locator('button:has-text("Verify tag")').click()
   await expect(page.locator('#kmac-verdict-panel .verdict-ok')).toHaveCount(1)
 
@@ -303,7 +463,7 @@ test('editing the message retires the verdict, says so, and names the control', 
 })
 
 test('a retired verdict is never silently blanked', async ({ page }) => {
-  await page.locator('button:has-text("Sign message")').click()
+  await page.locator('button:has-text("Compute tag")').click()
   await page.locator('button:has-text("Verify tag")').click()
   await page.locator('#kmac-key').fill('rotated-key')
   // Something must still be on screen explaining the state.
@@ -324,7 +484,7 @@ test('changing any KMAC input retires the verdict, each naming what moved', asyn
   for (const [name, change, matcher] of changes) {
     await page.reload()
     await awaitLiveContent(page)
-    await page.locator('button:has-text("Sign message")').click()
+    await page.locator('button:has-text("Compute tag")').click()
     await page.locator('button:has-text("Verify tag")').click()
     await expect(page.locator('#kmac-verdict-panel .verdict-ok'), name).toHaveCount(1)
     await change()
@@ -335,7 +495,7 @@ test('changing any KMAC input retires the verdict, each naming what moved', asyn
 })
 
 test('NO-OP GUARD: re-selecting the same value does not retire a fresh verdict', async ({ page }) => {
-  await page.locator('button:has-text("Sign message")').click()
+  await page.locator('button:has-text("Compute tag")').click()
   await page.locator('button:has-text("Verify tag")').click()
   await expect(page.locator('#kmac-verdict-panel .verdict-ok')).toHaveCount(1)
 
@@ -351,7 +511,7 @@ test('NO-OP GUARD: re-selecting the same value does not retire a fresh verdict',
 })
 
 test('a round-trip edit that restores the original bytes does not retire', async ({ page }) => {
-  await page.locator('button:has-text("Sign message")').click()
+  await page.locator('button:has-text("Compute tag")').click()
   await page.locator('button:has-text("Verify tag")').click()
   const original = await inputValue(page, '#kmac-message')
   await page.locator('#kmac-message').fill(`${original}X`)
@@ -361,19 +521,19 @@ test('a round-trip edit that restores the original bytes does not retire', async
   await expect(page.locator('#kmac-verdict-panel .verdict-ok')).toHaveCount(1)
 })
 
-test('signing again clears the old verdict rather than leaving it to endorse a new tag', async ({ page }) => {
-  await page.locator('button:has-text("Sign message")').click()
+test('re-tagging clears the old verdict rather than leaving it to endorse a new tag', async ({ page }) => {
+  await page.locator('button:has-text("Compute tag")').click()
   await page.locator('button:has-text("Verify tag")').click()
   await expect(page.locator('#kmac-verdict-panel .verdict-ok')).toHaveCount(1)
   await page.locator('#kmac-message').fill('a new instruction')
-  await page.locator('button:has-text("Sign message")').click()
+  await page.locator('button:has-text("Compute tag")').click()
   await expect(page.locator('#kmac-verdict-panel .verdict-ok')).toHaveCount(0)
   await expect(page.locator('#kmac-verdict-panel .verdict-stale')).toHaveCount(0)
   await expect(page.locator('#stage-kmac')).toContainText('Nothing verified yet')
 })
 
 test('the held tag survives tampering — it is what makes the rejection possible', async ({ page }) => {
-  await page.locator('button:has-text("Sign message")').click()
+  await page.locator('button:has-text("Compute tag")').click()
   const held = await hexOf(page, '#held-tag')
   await page.locator('button:has-text("Tamper with the message")').click()
   expect(await hexOf(page, '#held-tag')).toBe(held)
@@ -385,10 +545,12 @@ test('the held tag survives tampering — it is what makes the rejection possibl
 // ---------------------------------------------------------------------------
 
 test('the accept verdict does not claim more than KMAC establishes', async ({ page }) => {
-  await page.locator('button:has-text("Sign message")').click()
+  await page.locator('button:has-text("Compute tag")').click()
   await page.locator('button:has-text("Verify tag")').click()
   const text = await page.locator('#kmac-verdict-panel .verdict-ok').innerText()
-  expect(text).toMatch(/does not say when, or by whom/i)
+  // It must disclaim identity and freshness, the two things a MAC cannot give.
+  expect(text).toMatch(/does not identify who/i)
+  expect(text).toMatch(/does not say when|replayed/i)
   expect(text).not.toMatch(/proves the sender|guarantees|authentic sender|came from/i)
 })
 

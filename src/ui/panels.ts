@@ -9,51 +9,76 @@
 
 import { toHex, utf8 } from '../keccak/bytes'
 import type { RunReport } from '../demo/run'
-import { stagePermutationCalls } from '../demo/run'
+import { stageCosts } from '../demo/run'
+import {
+  STEP_KEYS,
+  STEP_LABEL,
+  changedSteps,
+  pipelineStages,
+  type PipelineStage,
+  type StepKey,
+} from '../demo/pipeline'
 import { VERIFY_DOES_NOT_LEARN, VERIFY_LEARNS } from '../demo/mac'
 import type { TraceResult } from '../demo/trace'
 import { byteComparison, hexBox, laneGrid, markedHexBox, spongeBar } from './components'
 import { el, scrollRegion } from './dom'
 
-const SUFFIX_MEANING: Record<number, string> = {
-  0x06: 'SHA-3 appends the bits 01, then pad10*1 → 0x06',
-  0x1f: 'the XOFs append the bits 1111, then pad10*1 → 0x1F',
-  0x04: 'cSHAKE (and so KMAC) appends the bits 00, then pad10*1 → 0x04',
-}
 
-/** The shared-core panel: the same permutation, counted. */
+/**
+ * The shared-core panel: one pipeline, four modes, and an honest cost.
+ *
+ * The table below IS the demo's thesis. Rows are the six pipeline steps every
+ * mode goes through; columns are the four modes. The `Keccak-f[1600]` row is
+ * identical across all four columns, and it is identical because the code has
+ * only one such function — not because this table was written that way.
+ */
 export function renderCorePanel(report: RunReport): HTMLElement {
-  const parts = stagePermutationCalls(report)
-  const labels = ['SHA3-256', 'SHAKE', 'cSHAKE', 'KMAC']
-  const sum = parts.reduce((a, b) => a + b, 0)
+  const stages = pipelineStages(report)
+  const costs = stageCosts(report)
+  const operationTotal = costs.reduce((a, c) => a + c.operation, 0)
+  const proofTotal = costs.reduce((a, c) => a + c.proof, 0)
 
-  const strip = el(
+  const table = el(
     'table',
-    { class: 'facts' },
-    el('caption', { text: 'Same message, same permutation — only the framing changes.' }),
+    { class: 'facts pipeline-table', id: 'pipeline-table' },
+    el('caption', {
+      text: 'The same six steps every time. Only the shaded cells differ from the mode to their left; the Keccak-f[1600] row never differs at all.',
+    }),
     el(
       'thead',
       {},
       el(
         'tr',
         {},
-        el('th', { scope: 'col', text: 'Mode' }),
-        el('th', { scope: 'col', text: 'Rate / capacity' }),
-        el('th', { scope: 'col', text: 'Domain suffix' }),
-        el('th', { scope: 'col', text: 'Why that byte' }),
+        el('th', { scope: 'col', text: 'Pipeline step' }),
+        ...stages.map((st) => el('th', { scope: 'col', text: st.mode })),
       ),
     ),
     el(
       'tbody',
       {},
-      ...report.suffixes.map((s) =>
+      ...STEP_KEYS.map((key) =>
         el(
           'tr',
-          {},
-          el('th', { scope: 'row', text: s.mode }),
-          el('td', { text: `${s.rateBytes} / ${200 - s.rateBytes} bytes` }),
-          el('td', { 'data-suffix': s.mode, text: `0x${s.suffix.toString(16).padStart(2, '0')}` }),
-          el('td', { text: SUFFIX_MEANING[s.suffix] ?? '' }),
+          { 'data-step': key },
+          el('th', { scope: 'row', text: STEP_LABEL[key] }),
+          ...stages.map((st, i) => {
+            const changed = changedSteps(stages, i).includes(key)
+            return el(
+              'td',
+              {
+                class: changed ? 'cell-changed' : undefined,
+                'data-changed': String(changed),
+                // The raw value, free of the screen-reader prefix below, so a
+                // comparison of cells reads the value and not the annotation.
+                'data-value': st.values[key],
+              },
+              changed
+                ? el('span', { class: 'sr-only', text: 'Changed from the previous mode: ' })
+                : null,
+              st.values[key],
+            )
+          }),
         ),
       ),
     ),
@@ -66,27 +91,84 @@ export function renderCorePanel(report: RunReport): HTMLElement {
       'div',
       { class: 'panel-head' },
       el('span', { class: 'stage-num', text: 'THE CORE' }),
-      el('h2', { id: 'core-h', text: 'One permutation, counted' }),
+      el('h2', { id: 'core-h', text: 'One pipeline, four modes' }),
     ),
     el('p', { class: 'lede' },
-      'Everything below runs on a single hand-written ',
+      'These are four separate runs, not one running machine: each mode starts from a fresh all-zero 200-byte state. What they share is the construction and the code — every one of them reaches the same ',
       el('code', { text: 'keccakF1600' }),
-      ' function. Nothing is a copy: the counter is incremented inside that one function, so if a mode had its own core it would contribute nothing here.',
+      ' function through the same sponge.',
     ),
+    scrollRegion('The four modes as one pipeline', 'facts-scroll', table),
     el(
       'ul',
       { class: 'kv', id: 'perm-breakdown', role: 'list' },
-      ...parts.map((n, i) =>
-        el('li', { role: 'listitem', 'data-stage': labels[i] }, `${labels[i]}: `, el('b', { text: String(n) })),
+      ...costs.map((c) =>
+        el(
+          'li',
+          { role: 'listitem', 'data-stage': c.label },
+          `One ${c.label}: `,
+          el('b', { text: String(c.operation) }),
+          ' permutation calls',
+        ),
       ),
-      el('li', { role: 'listitem' }, 'Total this render: ', el('b', { id: 'perm-total', text: String(report.totalPermutationCalls) })),
     ),
     el('p', {
       class: 'hint',
       id: 'perm-sum-check',
-      text: `${parts.join(' + ')} = ${sum} permutation calls, all through the same function.`,
+      text:
+        `Those four operations cost ${operationTotal} permutation calls between them. This page also ran ` +
+        `${proofTotal} more to compute the side-by-side comparisons below — ${operationTotal} + ${proofTotal} = ` +
+        `${report.totalPermutationCalls} calls this render, every one of them through that single function.`,
     }),
-    scrollRegion('Domain separation by mode', 'facts-scroll', strip),
+    el('p', { class: 'hint', id: 'perm-total-note' },
+      'Total this render: ',
+      el('b', { id: 'perm-total', text: String(report.totalPermutationCalls) }),
+      ' — if any mode had its own copy of the permutation, it would contribute nothing to this number.',
+    ),
+  )
+}
+
+/**
+ * The persistent spine, repeated at the top of every stage.
+ *
+ * Same six steps, same order, every stage — so the learner reads one machine
+ * being re-parameterised rather than four unrelated exhibits. The steps that
+ * changed since the previous stage are marked in text as well as colour.
+ */
+export function renderSpine(stages: PipelineStage[], index: number): HTMLElement {
+  const changed = new Set<StepKey>(changedSteps(stages, index))
+  const stage = stages[index]
+  return el(
+    'div',
+    { class: 'spine', 'data-stage': stage.key },
+    el('p', { class: 'out-label', text: `The pipeline, as ${stage.mode} parameterises it` }),
+    el(
+      'ol',
+      { class: 'spine-steps', 'aria-label': `${stage.mode} pipeline steps` },
+      ...STEP_KEYS.map((key) =>
+        el(
+          'li',
+          {
+            class: `spine-step${changed.has(key) ? ' spine-changed' : ''}${key === 'permutation' ? ' spine-shared' : ''}`,
+            'data-step': key,
+            'data-changed': String(changed.has(key)),
+          },
+          el('span', { class: 'spine-label', text: STEP_LABEL[key] }),
+          el('span', { class: 'spine-value', text: stage.values[key] }),
+          key === 'permutation'
+            ? el('span', {
+                class: 'spine-count',
+                text: `called ${stage.permutationCalls}× for this run`,
+              })
+            : null,
+          changed.has(key)
+            ? el('span', { class: 'spine-tag', text: 'changed from the previous stage' })
+            : key === 'permutation'
+              ? el('span', { class: 'spine-tag spine-tag-shared', text: 'identical in all four stages' })
+              : null,
+        ),
+      ),
+    ),
   )
 }
 
@@ -100,11 +182,21 @@ export function renderTrace(
   const step = trace.steps[clamped]
   const previous = clamped > 0 ? trace.steps[clamped - 1].lanesAfter : undefined
 
+  // Mark the padding bytes from the offsets the sponge RECORDED, never by
+  // searching the block for a byte matching the suffix value: a message
+  // containing that byte as data would otherwise get one of its own bytes
+  // highlighted as the domain suffix.
   const marks: { offset: number; title: string }[] = []
-  if (step.block && step.kind === 'pad') {
-    const suffixOffset = step.block.findIndex((b, i) => b === trace.suffix && i >= 0)
-    if (suffixOffset >= 0) marks.push({ offset: suffixOffset, title: 'domain suffix + start of pad10*1' })
-    marks.push({ offset: step.block.length - 1, title: 'final pad bit, 0x80' })
+  if (step.block && step.kind === 'pad' && step.suffixOffset !== undefined) {
+    const padBit = step.padBitOffset ?? step.block.length - 1
+    if (step.suffixOffset === padBit) {
+      // The message filled the block to one byte short of the rate, so the
+      // suffix and the pad's final bit share a byte.
+      marks.push({ offset: padBit, title: 'domain suffix and the pad10*1 final bit, in the same byte' })
+    } else {
+      marks.push({ offset: step.suffixOffset, title: 'domain suffix + start of pad10*1' })
+      marks.push({ offset: padBit, title: 'final pad bit, 0x80' })
+    }
   }
 
   return el(
@@ -141,14 +233,14 @@ export function renderSha3Output(report: RunReport, stepIndex: number): HTMLElem
     spongeBar(
       sha3.trace.rateBytes,
       sha3.trace.capacityBytes,
-      `SHA3-256 splits the 1600-bit state into a ${sha3.trace.rateBytes * 8}-bit rate and a ${sha3.trace.capacityBytes * 8}-bit capacity. The 256-bit digest is the first 32 bytes of the rate once absorbing finishes.`,
+      `SHA3-256 splits the 1600-bit state into a ${sha3.trace.rateBytes * 8}-bit rate and a ${sha3.trace.capacityBytes * 8}-bit capacity. The 256-bit digest is the first 32 bytes of the rate once absorbing finishes. Step through the trace and watch the capacity lanes go from zero to non-zero: the permutation mixes your message into them, even though nothing writes to them directly and none of them is ever output.`,
     ),
     el(
       'ul',
       { class: 'kv', role: 'list' },
       el('li', { role: 'listitem' }, 'Message: ', el('b', { id: 'sha3-msg-len', text: `${sha3.messageBytes.length} bytes` })),
       el('li', { role: 'listitem' }, 'Blocks: ', el('b', { id: 'sha3-blocks', text: String(sha3.trace.steps.length) })),
-      el('li', { role: 'listitem' }, 'Permutation calls: ', el('b', { id: 'sha3-perms', text: String(sha3.permutationCalls) })),
+      el('li', { role: 'listitem' }, 'This digest cost: ', el('b', { id: 'sha3-perms', text: String(sha3.operationCalls) }), ' permutation calls'),
     ),
     el('p', { class: 'out-label', text: 'SHA3-256 digest' }),
     el('div', { id: 'sha3-digest', 'data-hex': toHex(sha3.digest) }, hexBox(sha3.digest, 'SHA3-256 digest')),
@@ -166,14 +258,14 @@ export function renderShakeOutput(report: RunReport): HTMLElement {
     spongeBar(
       s.trace.rateBytes,
       s.trace.capacityBytes,
-      `SHAKE${s.strength} keeps a ${s.trace.capacityBytes * 8}-bit capacity and reads output from the ${s.trace.rateBytes * 8}-bit rate. When you ask for more than the rate holds, it permutes again and keeps reading.`,
+      `SHAKE${s.strength} reads output from the ${s.trace.rateBytes * 8}-bit rate and keeps its ${s.trace.capacityBytes * 8}-bit capacity out of the output entirely. When you ask for more than the rate holds, it permutes again and keeps reading.`,
     ),
     el(
       'ul',
       { class: 'kv', role: 'list' },
       el('li', { role: 'listitem' }, 'Requested: ', el('b', { id: 'shake-len', text: `${s.outputBytes} bytes` })),
       el('li', { role: 'listitem' }, 'Squeeze permutations: ', el('b', { id: 'shake-squeezes', text: String(s.trace.steps.filter((x) => x.kind === 'squeeze').length) })),
-      el('li', { role: 'listitem' }, 'Permutation calls: ', el('b', { id: 'shake-perms', text: String(s.permutationCalls) })),
+      el('li', { role: 'listitem' }, 'This output cost: ', el('b', { id: 'shake-perms', text: String(s.operationCalls) }), ' permutation calls'),
     ),
     el('p', { class: 'out-label', text: `SHAKE${s.strength} output (${s.outputBytes} bytes)` }),
     el('div', { id: 'shake-output', 'data-hex': toHex(s.output) }, hexBox(s.output, `SHAKE${s.strength} output`)),
@@ -209,7 +301,7 @@ export function renderCshakeOutput(report: RunReport): HTMLElement {
   const c = report.cshakeStage
   const fallbackNote = c.fallbackActive
     ? 'N and S are both empty right now, so by SP 800-185 §3.3 this IS plain SHAKE — the two outputs below are the same bytes.'
-    : 'With a customization string set, the output is unrelated to plain SHAKE of the same message.'
+    : 'With a customization string set, this run produced a different output from plain SHAKE of the same message.'
 
   return el(
     'div',
@@ -220,8 +312,9 @@ export function renderCshakeOutput(report: RunReport): HTMLElement {
       el('li', { role: 'listitem' }, 'Function name N: ', el('b', { id: 'cshake-n', text: c.name === '' ? '(empty)' : c.name })),
       el('li', { role: 'listitem' }, 'Customization S: ', el('b', { id: 'cshake-s', text: c.custom === '' ? '(empty)' : c.custom })),
       el('li', { role: 'listitem' }, 'Framed prefix: ', el('b', { id: 'cshake-prefix-len', text: `${c.framedPrefix.length} bytes` })),
-      el('li', { role: 'listitem' }, 'Permutation calls: ', el('b', { id: 'cshake-perms', text: String(c.permutationCalls) })),
+      el('li', { role: 'listitem' }, 'This output cost: ', el('b', { id: 'cshake-perms', text: String(c.operationCalls) }), ' permutation calls'),
     ),
+    renderCshakeRoutes(report),
     el('p', { class: 'out-label', text: `cSHAKE${c.strength} output` }),
     el('div', { id: 'cshake-output', 'data-hex': toHex(c.output) }, hexBox(c.output, `cSHAKE${c.strength} output`)),
     el('p', { class: 'hint', id: 'cshake-fallback-note', text: fallbackNote }),
@@ -240,8 +333,8 @@ export function renderCshakeOutput(report: RunReport): HTMLElement {
         c.neighbourOutput,
         {
           equalTitle: 'Identical — domain separation did nothing',
-          differTitle: 'Unrelated outputs from a one-character change',
-          note: 'Each customization string is its own independent function',
+          differTitle: 'Different output in this run, from a one-character change',
+          note: 'What one run shows is that these two outputs differ. The design claim is separate and stronger: cSHAKE frames N and S unambiguously, so each customization string defines its own function under the security argument of SP 800-185',
         },
       ),
     ),
@@ -279,6 +372,91 @@ export function renderCshakeOutput(report: RunReport): HTMLElement {
   )
 }
 
+
+/**
+ * The cSHAKE branch, drawn as two routes with the live one marked.
+ *
+ * SP 800-185 §3.3 is a genuine fork, not a tweak: with N and S both empty
+ * cSHAKE IS SHAKE — same domain suffix, no framed prefix at all. That is easy
+ * to miss when the only evidence is a hex comparison further down the panel,
+ * so the branch itself is drawn, and the active side is decided by the value
+ * the run actually computed.
+ */
+export function renderCshakeRoutes(report: RunReport): HTMLElement {
+  const c = report.cshakeStage
+  const active = c.fallbackActive ? 'a' : 'b'
+  const rate = c.trace.rateBytes
+
+  const route = (
+    id: 'a' | 'b',
+    title: string,
+    condition: string,
+    steps: string[],
+  ): HTMLElement =>
+    el(
+      'li',
+      {
+        class: `route route-${id}${active === id ? ' route-active' : ''}`,
+        'data-route': id,
+        'data-active': String(active === id),
+        'aria-current': active === id ? 'true' : undefined,
+      },
+      el(
+        'p',
+        { class: 'route-head' },
+        el('span', { class: 'route-icon', 'aria-hidden': 'true', text: active === id ? '▶' : '·' }),
+        el('span', { class: 'route-title', text: title }),
+        el('span', {
+          class: 'route-state',
+          text: active === id ? 'ACTIVE — this is the route your inputs took' : 'not taken',
+        }),
+      ),
+      el('p', { class: 'route-cond', text: condition }),
+      el(
+        'ol',
+        { class: 'route-steps' },
+        ...steps.map((t) => el('li', { text: t })),
+      ),
+    )
+
+  return el(
+    'div',
+    { class: 'routes', id: 'cshake-routes' },
+    el('p', { class: 'out-label', text: 'Which of the two routes your inputs take' }),
+    el(
+      'ul',
+      { class: 'route-list', role: 'list', 'aria-label': 'The two cSHAKE routes' },
+      route(
+        'a',
+        'Route A — cSHAKE is exactly SHAKE',
+        'Taken when N and S are BOTH empty.',
+        [
+          'No framed prefix is absorbed at all',
+          'The message is absorbed on its own',
+          'Domain suffix 0x1F — SHAKE\u2019s own suffix, not cSHAKE\u2019s',
+          'Result: byte-for-byte identical to plain SHAKE',
+        ],
+      ),
+      route(
+        'b',
+        'Route B — cSHAKE frames a namespace',
+        'Taken when either N or S is non-empty.',
+        [
+          'encode_string(N) \u2016 encode_string(S) frames each string with its own length',
+          `bytepad(\u2026, ${rate}) pads that to a whole rate block`,
+          'The framed prefix is absorbed, then the message',
+          'Domain suffix 0x04 — cSHAKE\u2019s own suffix',
+        ],
+      ),
+    ),
+    el('p', {
+      class: 'hint',
+      id: 'cshake-route-note',
+      text: `Right now: ${c.fallbackActive ? 'Route A. N and S are both empty, so there is no framed prefix and the suffix is 0x1F.' : `Route B. The framed prefix is ${c.framedPrefix.length} bytes and the suffix is 0x04.`} Clearing both fields moves the run onto the other route.`,
+    }),
+  )
+}
+
 /** Stage 4 — KMAC length binding sub-panels (always live, no verdict held). */
 export function renderKmacLive(report: RunReport): HTMLElement {
   const k = report.kmacStage
@@ -288,14 +466,14 @@ export function renderKmacLive(report: RunReport): HTMLElement {
     spongeBar(
       k.trace.rateBytes,
       k.trace.capacityBytes,
-      `KMAC${k.params.strength} rides cSHAKE${k.params.strength}: the key is absorbed in its own padded block, then your message, then the requested output length. The ${k.trace.capacityBytes * 8}-bit capacity is never output — which is why no HMAC-style outer hash is needed.`,
+      `KMAC${k.params.strength} rides cSHAKE${k.params.strength}: the key is absorbed in its own padded block, then your message, then the requested output length. Two separate properties are at work. The framing (bytepad, encode_string) makes the encoding unambiguous, so no two different inputs can frame to the same bytes. Separately, the ${k.trace.capacityBytes * 8}-bit capacity is never emitted, so a tag holder cannot reconstruct the state — and it is that second property alone that removes the need for an HMAC-style outer hash.`,
     ),
     el(
       'ul',
       { class: 'kv', role: 'list' },
       el('li', { role: 'listitem' }, 'Key block: ', el('b', { id: 'kmac-keyblock', text: `${k.framing.keyBlock.length} bytes` })),
       el('li', { role: 'listitem' }, 'Length suffix: ', el('b', { id: 'kmac-suffix', text: toHex(k.framing.lengthSuffix) })),
-      el('li', { role: 'listitem' }, 'Permutation calls: ', el('b', { id: 'kmac-perms', text: String(k.permutationCalls) })),
+      el('li', { role: 'listitem' }, 'This tag cost: ', el('b', { id: 'kmac-perms', text: String(k.operationCalls) }), ' permutation calls'),
     ),
     el(
       'details',
@@ -319,9 +497,9 @@ export function renderKmacLive(report: RunReport): HTMLElement {
         `KMAC at ${k.lengthBinding.longBits} bits, first ${k.lengthBinding.short.length} bytes`,
         k.lengthBinding.long.subarray(0, k.lengthBinding.short.length),
         {
-          equalTitle: 'A truncation — the length is not bound',
-          differTitle: 'Unrelated — the requested length is bound into the tag',
-          note: 'A 256-bit KMAC tag is not the first half of a 512-bit one',
+          equalTitle: 'A truncation — the shorter tag is a prefix of the longer',
+          differTitle: 'These two outputs differ — the shorter tag is not a prefix of the longer',
+          note: `The cause is visible above: KMAC absorbs right_encode(${k.params.outputBits}), so changing the requested length changes the absorbed input rather than just the slice taken from it`,
         },
       ),
       byteComparison(
@@ -331,8 +509,8 @@ export function renderKmacLive(report: RunReport): HTMLElement {
         k.xofBinding.long.subarray(0, k.xofBinding.short.length),
         {
           equalTitle: 'A prefix — the XOF variant just keeps squeezing',
-          differTitle: 'Unrelated — unexpected for the XOF variant',
-          note: 'Use KMACXOF when you want to draw arbitrary key material; use KMAC when the length is part of what you are authenticating',
+          differTitle: 'These two outputs differ — unexpected for the XOF variant',
+          note: 'KMACXOF absorbs right_encode(0) whatever length you ask for, so the longer run continues the same squeeze. Use KMACXOF to draw arbitrary key material; use KMAC when the length is part of what you are authenticating',
         },
       ),
     ),
@@ -513,9 +691,9 @@ export function renderIntro(): HTMLElement {
       'A sponge is a fixed-size block of memory — here 200 bytes — plus one scrambling function that stirs it. You feed data in by mixing it into the first part of that memory and stirring; you read results out of that same first part, stirring again whenever you need more.',
     ),
     el('p', {},
-      'The trick is that the rest of the memory, called the ',
+      'The trick is what happens to the rest of that memory, called the ',
       el('b', { text: 'capacity' }),
-      ', is never written by your input and never handed back as output. It is the part of the machine an outsider cannot see or touch.',
+      '. Your input is never mixed into it directly, and none of it is ever handed back to you — but the stirring spreads your input through it all the same, so it does not sit there empty. What matters is the half you never see: because the capacity is never given out, nobody holding the output can work out the machine\u2019s full contents, and so nobody can pick up stirring where you left off.',
     ),
     el('p', {},
       'That one design choice is why the four functions below — a hash, a variable-length hash, a domain-separated hash, and a keyed message authentication code — are the same machine wearing different labels, and why keying it takes no extra scaffolding. Work through the stages in order; each adds exactly one idea to the one before.',

@@ -133,10 +133,18 @@ export function byteComparison(
 /**
  * The rate/capacity split, drawn to scale.
  *
- * This is the picture the whole demo turns on: input and output only ever
- * touch the rate; the capacity is the part of the state the outside world
- * never sees. Both regions are labelled in text as well as colour, and the
- * capacity carries a hatch pattern so the split survives greyscale.
+ * This is the picture the whole demo turns on, so the wording has to be exact.
+ * Input is XORed only into the rate and output is read only from the rate —
+ * but the capacity does NOT stay inert. The first permutation diffuses the
+ * absorbed input across all 25 lanes, capacity included; you can watch those
+ * lanes go from zero to non-zero in the trace below.
+ *
+ * The security property is narrower and stronger than "untouched": the
+ * capacity is never EMITTED. That is what makes the state unrecoverable from
+ * the output, and it is what defeats length extension.
+ *
+ * Both regions are labelled in text as well as colour, and the capacity
+ * carries a hatch pattern so the split survives greyscale.
  */
 export function spongeBar(rateBytes: number, capacityBytes: number, caption: string): HTMLElement {
   const total = rateBytes + capacityBytes
@@ -154,7 +162,7 @@ export function spongeBar(rateBytes: number, capacityBytes: number, caption: str
       'aria-labelledby': titleId,
       preserveAspectRatio: 'none',
     },
-    svgEl('title', { id: titleId }, `The 200-byte Keccak state: ${rateBytes} bytes of rate, then ${capacityBytes} bytes of capacity that no input or output ever touches.`),
+    svgEl('title', { id: titleId }, `The 200-byte Keccak state: ${rateBytes} bytes of rate that input and output read and write directly, then ${capacityBytes} bytes of capacity that are never written directly and never emitted — though the permutation does diffuse input into them.`),
     svgEl('defs', {},
       svgEl('pattern', { id: `hatch-${rateBytes}`, width: '8', height: '8', patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' },
         svgEl('rect', { width: '8', height: '8', fill: 'var(--inset)' }),
@@ -180,11 +188,11 @@ export function spongeBar(rateBytes: number, capacityBytes: number, caption: str
       { class: 'sponge-legend' },
       el('li', {},
         el('span', { class: 'swatch swatch-rate', 'aria-hidden': 'true' }),
-        `Rate — ${rateBytes} bytes (${rateBytes * 8} bits): input is XORed here, output is read from here`,
+        `Rate — ${rateBytes} bytes (${rateBytes * 8} bits): the only part input is XORed into, and the only part output is read from`,
       ),
       el('li', {},
         el('span', { class: 'swatch swatch-capacity', 'aria-hidden': 'true' }),
-        `Capacity — ${capacityBytes} bytes (${capacityBytes * 8} bits): never written by input, never read as output`,
+        `Capacity — ${capacityBytes} bytes (${capacityBytes * 8} bits): never written directly and never emitted — but the permutation does mix input into it, so it is not left at zero`,
       ),
     ),
     el('p', { class: 'hint', text: caption }),

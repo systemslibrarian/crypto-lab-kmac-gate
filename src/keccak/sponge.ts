@@ -2,14 +2,22 @@
  * The sponge construction over Keccak-f[1600].
  *
  * Every mode in this demo is this one class with three knobs:
- *   - the RATE (how many bytes of the 200-byte state the outside world touches),
+ *   - the RATE (how many bytes of the 200-byte state input and output touch),
  *   - the DOMAIN SUFFIX (the padding bits that separate one mode from another),
  *   - how many bytes you squeeze out.
  *
- * The capacity — the 200 − rate bytes at the top of the state — is never
- * written by input and never read as output. That single fact is why a keyed
- * sponge needs no HMAC wrapper: an attacker who holds the whole digest still
- * does not hold the state, so there is nothing to resume from.
+ * The capacity — the 200 − rate bytes at the top of the state — is never XORed
+ * into directly and never read out. It does NOT stay inert: the very first
+ * permutation diffuses the absorbed input across all 25 lanes, capacity
+ * included, and that diffusion is what makes the sponge a hash rather than a
+ * bookkeeping exercise.
+ *
+ * The security property is the second half only: the capacity is never
+ * EMITTED. A holder of the output learns the rate bytes they were given and
+ * nothing about the capacity, so they cannot reconstruct the state and resume
+ * absorbing from it. That is why a keyed sponge needs no HMAC wrapper — not
+ * because the capacity is untouched, but because it is unrecoverable from the
+ * output.
  *
  * Squeezing is INCREMENTAL: `squeeze(16)` twice returns exactly the same bytes
  * as `squeeze(32)` once. That is the literal meaning of "longer output is a
@@ -33,6 +41,16 @@ export interface SpongeEvent {
   index: number
   /** The rate-sized block XORed in (absorb/pad only). */
   block?: Uint8Array
+  /**
+   * Byte offset of the domain suffix within `block`, for the padding step.
+   *
+   * Carried as structural metadata because it is the only honest way to point
+   * at it: searching the block for a byte equal to the suffix value marks the
+   * message's own data whenever the message happens to contain that byte.
+   */
+  suffixOffset?: number
+  /** Byte offset of the pad10*1 final bit — always the last byte of the rate. */
+  padBitOffset?: number
   /** State after the block was XORed in but before the permutation. */
   stateBefore: KeccakState
   /** State after the permutation. */
@@ -53,6 +71,7 @@ export class Sponge {
   private squeezeOffset = 0
   private absorbCount = 0
   private squeezeCount = 0
+  private suffixOffset = -1
   private readonly observer?: SpongeObserver
 
   constructor(rateBytes: number, observer?: SpongeObserver) {
@@ -94,9 +113,14 @@ export class Sponge {
    */
   finalize(suffix: number): this {
     if (this.squeezing) throw new Error('already finalized')
+    // Where the suffix goes is known here and nowhere else: it is whatever is
+    // left over after the last whole block. Remember it so the UI can point at
+    // the real byte instead of hunting for one with a matching value.
+    this.suffixOffset = this.blockLen
     this.block[this.blockLen] = suffix
     for (let i = this.blockLen + 1; i < this.rateBytes; i++) this.block[i] = 0
     // pad10*1: the trailing 1 bit lands in the top bit of the last rate byte.
+    // When the suffix already occupies that byte, the two share it.
     this.block[this.rateBytes - 1] |= 0x80
     this.blockLen = this.rateBytes
     this.permuteBlock('pad')
@@ -160,6 +184,8 @@ export class Sponge {
       kind,
       index: kind === 'absorb' ? this.absorbCount++ : 0,
       block,
+      suffixOffset: kind === 'pad' ? this.suffixOffset : undefined,
+      padBitOffset: kind === 'pad' ? this.rateBytes - 1 : undefined,
       stateBefore: before,
       stateAfter: cloneState(this.state),
     })

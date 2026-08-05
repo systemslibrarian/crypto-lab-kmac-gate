@@ -98,7 +98,7 @@ export function staleness(
  * Does the held tag still correspond to the inputs on screen?
  *
  * Unlike the verdict, a stale tag is not a defect — a tag over the message as
- * it stood at signing time is exactly what makes tampering detectable. The UI
+ * it stood when the tag was made is exactly what makes tampering detectable. The UI
  * says so rather than hiding or refreshing it.
  */
 export function tagDrift(

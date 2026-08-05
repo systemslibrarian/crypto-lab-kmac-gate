@@ -85,7 +85,7 @@ describe('stage 2 — extendable output', () => {
   it('a longer request costs more permutation calls, not a fresh absorb', () => {
     const small = run({ shakeBytes: 16 })
     const large = run({ shakeBytes: 1000 })
-    expect(large.shakeStage.permutationCalls).toBeGreaterThan(small.shakeStage.permutationCalls)
+    expect(large.shakeStage.operationCalls).toBeGreaterThan(small.shakeStage.operationCalls)
   })
 })
 

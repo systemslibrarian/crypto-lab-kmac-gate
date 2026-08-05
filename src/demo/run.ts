@@ -57,7 +57,10 @@ export interface Sha3Report {
   trace: TraceResult
   digest: Uint8Array
   messageBytes: Uint8Array
-  permutationCalls: number
+  /** Permutation calls the SHA3-256 digest itself cost. */
+  operationCalls: number
+  /** Extra calls this stage spent on its side-by-side proofs. */
+  proofCalls: number
 }
 
 export interface ShakeReport {
@@ -72,7 +75,10 @@ export interface ShakeReport {
   prefixHolds: boolean
   /** Squeezing in two goes vs one go — the continuation proof. */
   continuation: { first: Uint8Array; second: Uint8Array; oneShot: Uint8Array; identical: boolean }
-  permutationCalls: number
+  /** Permutation calls the displayed SHAKE output itself cost. */
+  operationCalls: number
+  /** Extra calls spent on the prefix and split-squeeze proofs. */
+  proofCalls: number
 }
 
 export interface CshakeReport {
@@ -95,7 +101,10 @@ export interface CshakeReport {
   /** The framed prefix cSHAKE absorbs before the message. */
   framedPrefix: Uint8Array
   trace: TraceResult
-  permutationCalls: number
+  /** Permutation calls the displayed cSHAKE output itself cost. */
+  operationCalls: number
+  /** Extra calls spent on the plain-SHAKE, neighbour and fallback proofs. */
+  proofCalls: number
 }
 
 export interface KmacReport {
@@ -120,7 +129,10 @@ export interface KmacReport {
     sharedBytes: number
     isTruncation: boolean
   }
-  permutationCalls: number
+  /** Permutation calls the displayed KMAC tag itself cost. */
+  operationCalls: number
+  /** Extra calls spent on the four length-binding comparison tags. */
+  proofCalls: number
 }
 
 export interface RunReport {
@@ -155,7 +167,8 @@ export function computeRun(inputs: DemoInputs): RunReport {
     trace: sha3Trace,
     digest: sha3Trace.output,
     messageBytes: message,
-    permutationCalls: permutationCallCount() - sha3Start,
+    operationCalls: sha3Trace.permutationCalls,
+    proofCalls: permutationCallCount() - sha3Start - sha3Trace.permutationCalls,
   }
 
   // --- Stage 2: SHAKE -----------------------------------------------------
@@ -184,7 +197,8 @@ export function computeRun(inputs: DemoInputs): RunReport {
         cont.oneShot,
       ),
     },
-    permutationCalls: permutationCallCount() - shakeStart,
+    operationCalls: shakeTrace.permutationCalls,
+    proofCalls: permutationCallCount() - shakeStart - shakeTrace.permutationCalls,
   }
 
   // --- Stage 3: cSHAKE ----------------------------------------------------
@@ -224,7 +238,8 @@ export function computeRun(inputs: DemoInputs): RunReport {
       ? new Uint8Array(0)
       : cshakePrefix(inputs.cshakeStrength, name, custom),
     trace: cshakeTrace,
-    permutationCalls: permutationCallCount() - cshakeStart,
+    operationCalls: cshakeTrace.permutationCalls,
+    proofCalls: permutationCallCount() - cshakeStart - cshakeTrace.permutationCalls,
   }
 
   // --- Stage 4: KMAC ------------------------------------------------------
@@ -265,7 +280,8 @@ export function computeRun(inputs: DemoInputs): RunReport {
       sharedBytes: xofShared,
       isTruncation: xofShared >= xofShort.length,
     },
-    permutationCalls: permutationCallCount() - kmacStart,
+    operationCalls: kmacTrace.permutationCalls,
+    proofCalls: permutationCallCount() - kmacStart - kmacTrace.permutationCalls,
   }
 
   return {
@@ -296,12 +312,33 @@ export function computeRun(inputs: DemoInputs): RunReport {
   }
 }
 
-/** The per-stage permutation counts, which must sum to the reported total. */
-export function stagePermutationCalls(report: RunReport): number[] {
+/**
+ * Per-stage permutation costs, split into the operation the stage is ABOUT and
+ * the extra runs the page makes to prove its comparisons.
+ *
+ * Reporting only the combined figure was misleading: KMAC's total folds in
+ * four auxiliary tags computed for the length-binding panel, so a learner
+ * reading it as "one KMAC tag costs this much" would be reading a number four
+ * fifths of which is the page's own proof workload.
+ */
+export interface StageCost {
+  label: string
+  /** What one run of this stage's operation actually cost. */
+  operation: number
+  /** What the page additionally spent proving this stage's claims. */
+  proof: number
+}
+
+export function stageCosts(report: RunReport): StageCost[] {
   return [
-    report.sha3.permutationCalls,
-    report.shakeStage.permutationCalls,
-    report.cshakeStage.permutationCalls,
-    report.kmacStage.permutationCalls,
+    { label: 'SHA3-256', operation: report.sha3.operationCalls, proof: report.sha3.proofCalls },
+    { label: 'SHAKE', operation: report.shakeStage.operationCalls, proof: report.shakeStage.proofCalls },
+    { label: 'cSHAKE', operation: report.cshakeStage.operationCalls, proof: report.cshakeStage.proofCalls },
+    { label: 'KMAC', operation: report.kmacStage.operationCalls, proof: report.kmacStage.proofCalls },
   ]
+}
+
+/** Every per-stage figure, which together must still sum to the reported total. */
+export function stagePermutationCalls(report: RunReport): number[] {
+  return stageCosts(report).map((c) => c.operation + c.proof)
 }

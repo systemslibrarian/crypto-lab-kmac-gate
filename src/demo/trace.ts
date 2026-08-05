@@ -18,6 +18,10 @@ export interface TraceStep {
   label: string
   /** The rate-sized block XORed in, if this step absorbed one. */
   block?: Uint8Array
+  /** Structural offset of the domain suffix in `block` (padding step only). */
+  suffixOffset?: number
+  /** Structural offset of the pad10*1 final bit (padding step only). */
+  padBitOffset?: number
   /** The 25 lanes after the permutation, as 16-hex-digit strings. */
   lanesAfter: string[]
   /** The 25 lanes before the permutation (after the XOR), for comparison. */
@@ -61,6 +65,8 @@ function collect(
       kind: event.kind,
       label: label(event),
       block: event.block,
+      suffixOffset: event.suffixOffset,
+      padBitOffset: event.padBitOffset,
       lanesBefore: lanes(event.stateBefore),
       lanesAfter: lanes(event.stateAfter),
     })
