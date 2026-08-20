@@ -84,6 +84,12 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      # Required for the deploy dispatch below. Without it `gh workflow run`
+      # gets HTTP 403 "Resource not accessible by integration", the merged bump
+      # never deploys, and the `|| echo ::warning::` fallback keeps the job
+      # green -- so the site silently serves a stale build. Observed on this
+      # repo's PR #1 before this line was added.
+      actions: write
     steps:
       - id: meta
         uses: dependabot/fetch-metadata@v3
