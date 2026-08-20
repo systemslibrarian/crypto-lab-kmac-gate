@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
-import { awaitLiveContent, settleMotion, toLightTheme } from './helpers'
+import { awaitLiveContent, expectNoThemeControl, settleMotion } from './helpers'
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']
 
@@ -71,17 +71,19 @@ const STATES = {
   },
 }
 
-for (const theme of ['dark', 'light'] as const) {
-  for (const [name, drive] of Object.entries(STATES)) {
-    test(`no WCAG A/AA violations — ${theme} theme, ${name} state`, async ({ page }) => {
-      await page.goto('.')
-      if (theme === 'light') await toLightTheme(page)
-      await awaitLiveContent(page)
-      await drive(page)
-      await prepare(page)
-      await scan(page, `${theme}/${name}`)
-    })
-  }
+// Dark is the only theme this page can be in — it is pinned in <head> with a
+// literal and there is no control to change it — so the sweep runs once per
+// state rather than once per state per theme. The light palette survives in
+// styles.css as dead code; nothing selects it, so scanning it would be
+// scanning a surface no visitor can reach.
+for (const [name, drive] of Object.entries(STATES)) {
+  test(`no WCAG A/AA violations — dark theme, ${name} state`, async ({ page }) => {
+    await page.goto('.')
+    await awaitLiveContent(page)
+    await drive(page)
+    await prepare(page)
+    await scan(page, `dark/${name}`)
+  })
 }
 
 test('nothing carrying the hidden attribute is still painted', async ({ page }) => {
@@ -210,30 +212,43 @@ async function measureContrast(page: Page): Promise<{ selector: string; ratio: n
   })
 }
 
-for (const theme of ['dark', 'light'] as const) {
-  test(`measured contrast meets AA on the real surfaces — ${theme} theme`, async ({ page }) => {
-    await page.goto('.')
-    if (theme === 'light') await toLightTheme(page)
-    await awaitLiveContent(page)
-    // Drive to the busiest state so tinted verdict panels are measured too.
-    await STATES.rejected(page)
-    await page.evaluate(() => {
-      document.querySelectorAll('details').forEach((d) => ((d as HTMLDetailsElement).open = true))
-    })
-    const measured = await measureContrast(page)
-    expect(measured.length, 'the sweep should find text to measure').toBeGreaterThan(50)
-    const failures = measured.filter((m) => m.ratio < m.required)
-    expect(failures, `contrast failures in ${theme} theme`).toEqual([])
-  })
-}
-
-test('the theme toggle actually repaints the page, not just the attribute', async ({ page }) => {
+test('measured contrast meets AA on the real surfaces — dark theme', async ({ page }) => {
   await page.goto('.')
   await awaitLiveContent(page)
-  const darkBg = await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)
-  await toLightTheme(page)
-  const lightBg = await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)
-  expect(lightBg).not.toBe(darkBg)
+  // Drive to the busiest state so tinted verdict panels are measured too.
+  await STATES.rejected(page)
+  await page.evaluate(() => {
+    document.querySelectorAll('details').forEach((d) => ((d as HTMLDetailsElement).open = true))
+  })
+  const measured = await measureContrast(page)
+  expect(measured.length, 'the sweep should find text to measure').toBeGreaterThan(50)
+  const failures = measured.filter((m) => m.ratio < m.required)
+  expect(failures, 'contrast failures in dark theme').toEqual([])
+})
+
+/**
+ * Was: "the theme toggle actually repaints the page, not just the attribute".
+ *
+ * There is no toggle to repaint anything now, so the claim is inverted — the
+ * pinned theme must be the one the page actually PAINTS, not just the one the
+ * attribute says. A stylesheet whose dark palette silently stopped applying
+ * would leave `data-theme="dark"` true and the page rendering light-on-light,
+ * which an attribute assertion alone cannot see.
+ */
+test('the pinned dark theme is the one actually painted, and cannot be left', async ({ page }) => {
+  await page.goto('.')
+  await awaitLiveContent(page)
+  await expectNoThemeControl(page)
+  const painted = await page.evaluate(() => {
+    const el = document.documentElement
+    return { bg: getComputedStyle(el).backgroundColor, fg: getComputedStyle(document.body).color }
+  })
+  const luminance = (css: string): number => {
+    const [r, g, b] = (css.match(/[\d.]+/g) ?? ['255', '255', '255']).map(Number)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+  }
+  expect(luminance(painted.bg), `root background should be dark, got ${painted.bg}`).toBeLessThan(80)
+  expect(luminance(painted.fg), `body text should be light, got ${painted.fg}`).toBeGreaterThan(120)
 })
 
 test('every scrollable region is keyboard reachable and named', async ({ page }) => {

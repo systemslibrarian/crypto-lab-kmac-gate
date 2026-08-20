@@ -7,7 +7,7 @@ import { expect, type Page } from '@playwright/test'
  * as if it had settled them.
  *
  * We never inject `transition: none` / `animation: none`: doing so makes the
- * suite structurally incapable of seeing a transition or theme-swap defect.
+ * suite structurally incapable of seeing a transition defect.
  */
 export async function settleMotion(page: Page): Promise<void> {
   await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -47,8 +47,26 @@ export async function setValue(page: Page, selector: string, value: string): Pro
   await page.locator(selector).dispatchEvent('change')
 }
 
-/** Switch to the light theme and confirm the contract landed on <html>. */
-export async function toLightTheme(page: Page): Promise<void> {
-  await page.locator('#cl-theme-toggle').click()
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+/**
+ * Assert the theme contract: dark, pinned, with no way to leave it.
+ *
+ * This helper used to click `#cl-theme-toggle` and assert the page reached
+ * light. The fleet removed that toggle — it persisted its choice, so one past
+ * click pinned a returning visitor to light forever — so the assertion is
+ * inverted rather than dropped: what was "the toggle works" is now "there is
+ * no toggle, and the theme it used to change is fixed".
+ *
+ * A lab's own legacy toggle may still sit in the DOM (an inline rule in the
+ * page hides it so the lab's theme JS keeps resolving), so what is asserted is
+ * that no theme control is VISIBLE, not that none exists.
+ */
+export async function expectNoThemeControl(page: Page): Promise<void> {
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(page.locator('#cl-theme-toggle')).toHaveCount(0)
+  await expect(
+    page.locator(
+      '#theme-toggle:visible, #themeToggle:visible, .theme-toggle:visible,' +
+        ' .theme-toggle-btn:visible, [data-theme-toggle]:visible',
+    ),
+  ).toHaveCount(0)
 }

@@ -35,8 +35,9 @@ function, the permutation and the sponge exactly once, and no mode module calls 
 directly).
 
 **Security model.** The key is whatever you type; it lives in a text box and in memory for the
-session, and is never persisted or transmitted. There is no backend, no network call, and no
-storage beyond the theme preference.
+session, and is never persisted or transmitted. There is no backend and no network call. The
+only thing written to storage is the pinned theme name, which the page overwrites on every load
+rather than reading.
 
 **This is not production cryptography.** It is a teaching implementation whose priority is that
 you can read it. The permutation uses BigInt arithmetic in a JIT-compiled runtime and tag
@@ -128,7 +129,7 @@ npm ci
 npm run dev            # http://localhost:5173/crypto-lab-kmac-gate/
 npm test               # 257 unit tests, including 21 spec KATs
 npm run build          # tsc --noEmit && vite build
-npm run test:browser   # 58 Playwright tests: axe WCAG gate + claims suite
+npm run test:browser   # 53 Playwright tests: axe WCAG gate + theme contract + claims suite
 ```
 
 `npm run test:browser` builds first, then serves `dist/` on port 4646, so what is tested is what
@@ -162,17 +163,30 @@ ships.
 `js-sha3` and `node:crypto` are **test-only oracles**. Neither is imported by the app bundle,
 which is hand-rolled down to the permutation.
 
-**58 browser tests (Playwright).** `e2e/a11y.spec.ts` runs `@axe-core/playwright` against the
-production build for zero WCAG 2.1 A/AA violations in **both themes** across **six interaction
-states** each (first paint, mid-trace, cSHAKE fallback, tag accepted, verdict retired, tag
-rejected), plus an arithmetic contrast sweep that measures every text node against the surface it
+**53 browser tests (Playwright).** `e2e/a11y.spec.ts` runs `@axe-core/playwright` against the
+production build for zero WCAG 2.1 A/AA violations across **six interaction states** (first
+paint, mid-trace, cSHAKE fallback, tag accepted, verdict retired, tag rejected), plus an
+arithmetic contrast sweep that measures every text node against the surface it
 is actually drawn on, a `[hidden]` leak probe, and a keyboard-reachability check on every
 scrollable region. `e2e/claims.spec.ts` checks the page cannot claim what it did not compute:
 every headline value is re-derived independently, every failure path is exercised, and verdict
-retirement and its no-op guard are asserted.
+retirement and its no-op guard are asserted. `e2e/theme.spec.ts` asserts the theme contract below.
 
 The accessibility gate blocks the deploy: `.github/workflows/deploy.yml` runs the unit tests, the
-typechecked build, and the browser suite before publishing.
+typechecked build, and the browser suite before publishing — on pull requests as well as on
+pushes, so a Dependabot bump is judged by the same gate before it can merge itself.
+
+## Theme
+
+The page is dark, and there is no way to change it. `<head>` pins `data-theme="dark"` with a
+literal before first paint, overwriting any stored preference rather than reading one.
+
+This lab was built before the fleet-wide toggle removal and was missed by it, so until now it
+still shipped the old header toggle — which persisted its choice, meaning a single past click
+pinned a returning visitor to the light palette forever. Both the button and its handler are
+gone, the boot script writes instead of reads, and `e2e/theme.spec.ts` blocks the deploy if
+either comes back. The `[data-theme='light']` block left in `src/styles.css` is dead code:
+nothing selects it.
 
 ## Performance
 
