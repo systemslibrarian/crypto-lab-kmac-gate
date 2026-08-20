@@ -59,8 +59,12 @@ jobs:
           path: dist
 
   deploy:
-    # A pull request is tested, never published.
-    if: github.event_name == 'push'
+    # A pull request is tested, never published -- but anything else that gets
+    # here should publish. NOT `== 'push'`: that also skips workflow_dispatch,
+    # which silently makes the whole §6.2 mechanism inert, because the dispatch
+    # the auto-merge job fires exists precisely to rebuild the site. Verified:
+    # the dispatched run built and then skipped this job.
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     environment:
