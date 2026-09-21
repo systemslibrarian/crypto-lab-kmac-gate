@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test'
 
 // Port 4646: checked against the committed playwright.config.ts of every
 // sibling crypto-lab repo (178 of them) before choosing. Never 4173.
-const PORT = 4646
+const PORT = 4202
 const ORIGIN = `http://localhost:${PORT}/crypto-lab-kmac-gate/`
 
 export default defineConfig({
