@@ -5,3 +5,4 @@ playwright-report/
 .tmp-checks/
 .vscode/
 .DS_Store
+chat.md
