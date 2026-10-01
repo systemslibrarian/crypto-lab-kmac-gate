@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
-import { awaitLiveContent, expectNoThemeControl, settleMotion } from './helpers'
+import { awaitLiveContent, expectNoHorizontalOverflow, expectNoThemeControl, settleMotion } from './helpers'
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']
 
@@ -85,6 +85,22 @@ for (const [name, drive] of Object.entries(STATES)) {
     await scan(page, `dark/${name}`)
   })
 }
+
+// Reflow at phone width, in every state the scan above drives. The page
+// shipped scrolling sideways to 3387px at 380px wide with every check here
+// green, because nothing measured the document at a narrow viewport.
+test.describe('reflow at 380px', () => {
+  test.use({ viewport: { width: 380, height: 800 } })
+  for (const [name, drive] of Object.entries(STATES)) {
+    test(`no horizontal page scroll at 380px — ${name} state`, async ({ page }) => {
+      await page.goto('.')
+      await awaitLiveContent(page)
+      await drive(page)
+      await prepare(page)
+      await expectNoHorizontalOverflow(page, `380px/${name}`)
+    })
+  }
+})
 
 test('nothing carrying the hidden attribute is still painted', async ({ page }) => {
   await page.goto('.')
