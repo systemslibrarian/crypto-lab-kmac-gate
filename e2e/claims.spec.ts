@@ -568,6 +568,17 @@ test('the page scopes itself honestly as a teaching implementation', async ({ pa
   expect(text).toMatch(/TupleHash and ParallelHash/)
 })
 
+test('the standards note links the NIST draft without claiming streaming API conformance', async ({ page }) => {
+  const note = page.locator('#standards-update')
+  await expect(note).toBeVisible()
+  await expect(note.getByRole('link', { name: 'SP 800-185 Revision 1 initial public draft' }))
+    .toHaveAttribute('href', 'https://csrc.nist.gov/pubs/sp/800/185/r1/ipd')
+  await expect(note).toContainText('comments due December 7, 2026')
+  await expect(note).toContainText('preserving the existing single-call outputs')
+  await expect(note).toContainText('not a replacement final standard')
+  await expect(note).toContainText('do not establish conformance')
+})
+
 test('nothing carrying the hidden attribute is still painted', async ({ page }) => {
   const leaks = await page.evaluate(() =>
     Array.from(document.querySelectorAll<HTMLElement>('[hidden]'))

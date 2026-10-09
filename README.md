@@ -27,6 +27,14 @@ The primitives are real and hand-rolled, not called out to a library:
 Plus the SP 800-185 encoding functions the last two are framed with: `left_encode`,
 `right_encode`, `encode_string` and `bytepad`.
 
+**Standards update — October 8, 2026.** NIST published the
+[SP 800-185 Revision 1 initial public draft](https://csrc.nist.gov/pubs/sp/800/185/r1/ipd),
+with comments due December 7, 2026. It proposes streaming XOF interfaces using
+`INIT`, `ABSORB` and `SQUEEZE`, while preserving the existing single-call outputs.
+This is a draft, not a replacement final standard. The lab continues to follow the
+final SP 800-185 specification; its incremental sponge operations demonstrate the
+mechanism, but do not establish conformance to the draft's streaming API.
+
 **The "one sponge" claim is literally true in the code, and enforced by tests.** There is exactly
 one `keccakF1600` function and exactly one `Sponge` class in `src/`; every mode reaches the
 permutation through them. `src/keccak/architecture.test.ts` checks this two ways — behaviourally
