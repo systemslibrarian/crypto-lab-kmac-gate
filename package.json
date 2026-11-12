@@ -15,9 +15,9 @@
     "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "^1.65.0",
     "@types/node": "^26.6.6",
-    "js-sha3": "^0.13.0",
+    "js-sha3": "^0.14.0",
     "typescript": "^7.0.2",
-    "vite": "^8.3.6",
+    "vite": "^8.3.7",
     "vitest": "^5.1.0"
   }
 }
