@@ -689,7 +689,7 @@ export function renderScopePanel(): HTMLElement {
       el('li', {}, el('b', { text: 'HMAC. ' }), 'The construction KMAC makes unnecessary is covered in its own sibling demos.'),
       el('li', {}, el('b', { text: 'SHA-3 collision resistance. ' }), 'See ',
         el('a', { href: 'https://systemslibrarian.github.io/crypto-lab-collision-vault/', text: 'crypto-lab-collision-vault' }), '.'),
-      el('li', {}, el('b', { text: 'KMAC as a KDF inside a protocol. ' }), 'KMAC is used this way in CNSA 2.0 and post-quantum key schedules, but no protocol is built here — only the primitive.'),
+      el('li', {}, el('b', { text: 'KMAC as a KDF inside a protocol. ' }), 'Not built here — only the primitive. CNSA 2.0 lists SHA-384 and SHA-512 for hashing and, per the NSA CNSA 2.0 FAQ, approves neither SHA-3 nor SHAKE as a general-purpose hash or as a PRF in key derivation functions; KMAC is not a CNSA 2.0 algorithm.'),
     ),
   )
 }

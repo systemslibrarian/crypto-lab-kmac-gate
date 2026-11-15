@@ -25,8 +25,10 @@ than new cryptography.
 - **HMAC.** The construction KMAC makes unnecessary. Covered by its own sibling demos.
 - **SHA-3 collision resistance.** See
   [crypto-lab-collision-vault](https://github.com/systemslibrarian/crypto-lab-collision-vault).
-- **KMAC as a KDF inside a full protocol.** CNSA 2.0 and post-quantum key schedules use KMAC this
-  way; that context is mentioned on the page, but no protocol is built here — only the primitive.
+- **KMAC as a KDF inside a full protocol.** SP 800-185 defines KMAC as a PRF and keyed hash with
+  variable-length output, which is what a KDF needs, but no protocol is built here — only the
+  primitive. CNSA 2.0 does not list KMAC, SHA-3 or SHAKE for general-purpose hashing or key
+  derivation (see the README's Real-World Usage section).
 - **A production-hardened or constant-time Keccak.** The permutation is written for readability:
   BigInt lanes, derived tables, no side-channel hardening. The page and README say so plainly.
 

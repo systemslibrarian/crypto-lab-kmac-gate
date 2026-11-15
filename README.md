@@ -124,11 +124,34 @@ browser during that run.
 
 ## Real-World Usage
 
-KMAC is specified in NIST SP 800-185 and is the MAC and KDF of choice in Keccak-based designs,
-including CNSA 2.0-aligned and post-quantum key schedules where a SHA-3-family primitive is
-already present. cSHAKE's domain separation is the same mechanism ML-KEM and ML-DSA rely on to
-keep their internal hash uses independent. (This demo builds the primitives only; no protocol is
-built here.)
+KMAC is specified in NIST SP 800-185 as a PRF and keyed hash with variable-length output, which
+makes it the natural MAC or KDF in Keccak-based designs where a SHA-3-family primitive is already
+present. It is not a CNSA 2.0 algorithm. NSA's
+[CNSA 2.0 FAQ](https://media.defense.gov/2022/Sep/07/2003071836/-1/-1/0/CSI_CNSA_2.0_FAQ_.PDF)
+(October 2026, Ver. 2.2) answers "Can I use SHA-3 as a hash?" with "No, neither SHA-3 nor SHAKE
+are approved for use in CNSA 2.0 as a general-purpose hash algorithm", answers "No" to using
+SHA-3 "as a pseudo-random function in deterministic random bit generators (DRBGs) and key
+derivation functions (KDFs)", and allows SHA3-384 or SHA3-512 only "for internal hardware
+functionality" such as boot integrity checks or where an approved algorithm's own standard
+prescribes it (LMS parameter sets in SP 800-208). CNSA 2.0's hashes are SHA-384 and SHA-512
+(FIPS 180-4); KMAC appears nowhere in it.
+cSHAKE's domain separation is the same idea ML-KEM and ML-DSA rely on to keep
+their internal hash uses independent, though neither standard uses cSHAKE:
+[FIPS 203 §4.1](https://csrc.nist.gov/pubs/fips/203/final) picks a plain FIPS 202 function per
+role (SHA3-256 for H, SHA3-512 for G, SHAKE256 for J and PRF, SHAKE128 for the XOF), and
+[FIPS 204 §3.7](https://csrc.nist.gov/pubs/fips/204/final) uses plain SHAKE128/SHAKE256 while
+§5.2–5.3 prefix the signed message with a domain-separator byte and context string
+(`IntegerToBytes(0,1) ‖ IntegerToBytes(|ctx|,1) ‖ ctx`). Both cite SP 800-185 only for its
+incremental Init/Absorb/Squeeze API. (This demo builds the primitives only; no protocol is built
+here.)
+
+**Standards reviewed — November 15, 2026.** FIPS 203 §4.1 and FIPS 204 §3.7 and §5.2–5.4 were
+re-read against the published PDFs; the paragraph above previously called cSHAKE "the same
+mechanism" ML-KEM and ML-DSA rely on. The same paragraph also called KMAC the KDF of choice in
+"CNSA 2.0-aligned and post-quantum key schedules"; NSA's CNSA 2.0 advisory (Table II: SHA-384
+or SHA-512, FIPS 180-4) and the CNSA 2.0 FAQ (October 2026, Ver. 2.2) were read, and neither
+lists KMAC, SHA-3 or SHAKE for general-purpose hashing or key derivation, so that claim was
+removed here, in KNOWN-GAPS.md and in the page's scope panel.
 
 ## How to Run Locally
 
