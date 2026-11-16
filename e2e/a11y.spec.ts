@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 import { awaitLiveContent, expectNoHorizontalOverflow, expectNoThemeControl, settleMotion } from './helpers'
+import { auditControlNames, formatControlNameFailures } from './control-names'
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']
 
@@ -21,6 +22,15 @@ async function scan(page: Page, label: string): Promise<void> {
       nodes: v.nodes.map((n) => n.target.join(' ')).slice(0, 5),
     })),
     `axe violations in state: ${label}`,
+  ).toEqual([])
+
+  // axe's `label` rule accepts a bare `placeholder` as an accessible name, so a
+  // deleted label can leave this gate green. Every field in this lab is built
+  // through `field()` in src/ui/dom.ts, so the check has real work here.
+  // See `control-names.ts`.
+  expect(
+    formatControlNameFailures(await auditControlNames(page)),
+    `form controls named only by placeholder/title in state: ${label}`,
   ).toEqual([])
 }
 
