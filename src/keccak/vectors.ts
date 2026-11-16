@@ -4,7 +4,9 @@
  * Sources:
  *   - FIPS 202 / NIST CAVP "SHA-3 and SHAKE" example values
  *     (https://csrc.nist.gov/projects/cryptographic-standards-and-guidelines/example-values)
- *   - NIST SP 800-185 sample values, Appendix A (cSHAKE) and Appendix A (KMAC)
+ *   - NIST's cSHAKE, KMAC and KMACXOF sample values for SP 800-185
+ *     (cSHAKE_samples.pdf, KMAC_samples.pdf, KMACXOF_samples.pdf on the same
+ *     page). SP 800-185 itself prints no sample values.
  *
  * These are test data only — nothing here is imported by the app bundle.
  */
@@ -79,7 +81,7 @@ export interface CshakeVector {
   output: string
 }
 
-/** SP 800-185 cSHAKE sample values (Appendix A). */
+/** SP 800-185 cSHAKE sample values (NIST cSHAKE_samples.pdf). */
 export const CSHAKE_VECTORS: CshakeVector[] = [
   {
     name: 'cSHAKE128 sample #1',
@@ -132,7 +134,7 @@ export interface KmacVector {
   output: string
 }
 
-/** SP 800-185 KMAC and KMACXOF sample values (Appendix A). */
+/** SP 800-185 KMAC and KMACXOF sample values (NIST KMAC_samples.pdf, KMACXOF_samples.pdf). */
 export const KMAC_VECTORS: KmacVector[] = [
   {
     name: 'KMAC128 sample #1',
