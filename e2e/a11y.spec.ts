@@ -59,7 +59,7 @@ const STATES = {
     await page.locator('#cshake-name').fill('')
   },
 
-  /** A tag signed and accepted. */
+  /** A tag computed and accepted. */
   async accepted(page: Page): Promise<void> {
     await page.locator('button:has-text("Compute tag")').click()
     await page.locator('button:has-text("Verify tag")').click()

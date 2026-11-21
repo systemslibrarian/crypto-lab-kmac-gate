@@ -383,7 +383,7 @@ export function mount(root: HTMLElement): void {
       el('p', {
         class: 'hint',
         id: 'reject-note',
-        text: 'A real verifier holding only the key, the message and the tag learns exactly this much: these bytes did not authenticate. It cannot tell which part was changed — the exhibit can only name the cause because it remembers what you signed.',
+        text: 'A real verifier holding only the key, the message and the tag learns exactly this much: these bytes did not authenticate. It cannot tell which part was changed — the exhibit can only name the cause because it remembers what you authenticated.',
       }),
     )
   }

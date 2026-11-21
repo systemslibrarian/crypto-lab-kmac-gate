@@ -682,7 +682,7 @@ export function renderScopePanel(): HTMLElement {
     el(
       'ul',
       { class: 'notes' },
-      el('li', {}, el('b', { text: 'TupleHash and ParallelHash. ' }), 'The other two SP 800-185 functions. TupleHash authenticates a sequence of strings unambiguously; ParallelHash hashes large inputs in independent chunks. Both build on the same cSHAKE core shown above.'),
+      el('li', {}, el('b', { text: 'TupleHash and ParallelHash. ' }), 'The other two SP 800-185 functions. TupleHash hashes a sequence of strings with an unambiguous encoding, so ("ab", "c") and ("a", "bc") hash differently. It takes no key, so it does not authenticate anything. ParallelHash hashes large inputs in independent chunks. Both build on the same cSHAKE core shown above.'),
       el('li', {}, el('b', { text: 'The length-extension attack itself. ' }), 'Stated as a contrast above; played out in ',
         el('a', { href: 'https://systemslibrarian.github.io/crypto-lab-mac-race/', text: 'crypto-lab-mac-race' }), ' and ',
         el('a', { href: 'https://systemslibrarian.github.io/crypto-lab-babel-hash/', text: 'crypto-lab-babel-hash' }), '.'),
