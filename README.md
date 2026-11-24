@@ -186,7 +186,7 @@ ships.
 | --- | --- | --- |
 | Permutation | `src/keccak/keccak-f1600.test.ts` | ρ offsets and ι round constants **derived** from their FIPS 202 definitions and asserted equal to the published tables; the all-zero-state vectors |
 | FIPS 202 KATs | `src/keccak/fips202.test.ts` | 4 SHA3-256 + 2 SHAKE known answers, rate-boundary inputs, the prefix property |
-| SP 800-185 KATs | `src/keccak/sp800-185.test.ts` | 4 cSHAKE + 11 KMAC/KMACXOF sample values, the encoding functions, the SHAKE fallback |
+| SP 800-185 KATs | `src/keccak/sp800-185.test.ts` | all 4 cSHAKE, 6 KMAC and 6 KMACXOF sample values, the encoding functions, the SHAKE fallback |
 | Cross-oracle | `src/keccak/oracle.test.ts` | agreement with **two independent implementations** — OpenSSL via `node:crypto` for FIPS 202, `js-sha3` for SP 800-185 — across message lengths straddling both rate boundaries |
 | Architecture | `src/keccak/architecture.test.ts` | the "one sponge" claim, behaviourally and structurally |
 | Demo layer | `src/demo/*.test.ts` | tag/verify accept and every reject path, verdict retirement and the no-op guard, trace fidelity, the run report's parts-sum-to-whole |

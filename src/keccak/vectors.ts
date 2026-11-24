@@ -200,7 +200,7 @@ export const KMAC_VECTORS: KmacVector[] = [
       'b58618f71f92e1d56c1b8c55ddd7cd188b97b4ca4d99831eb2699a837da2e4d970fbacfde50033aea585f1a2708510c32d07880801bd182898fe476876fc8965',
   },
   {
-    name: 'KMACXOF128 sample #4',
+    name: 'KMACXOF128 sample #1',
     strength: 128,
     xof: true,
     keyHex: SAMPLE_KEY_HEX,
@@ -210,7 +210,7 @@ export const KMAC_VECTORS: KmacVector[] = [
     output: 'cd83740bbd92ccc8cf032b1481a0f4460e7ca9dd12b08a0c4031178bacd6ec35',
   },
   {
-    name: 'KMACXOF128 sample #5',
+    name: 'KMACXOF128 sample #2',
     strength: 128,
     xof: true,
     keyHex: SAMPLE_KEY_HEX,
@@ -220,7 +220,7 @@ export const KMAC_VECTORS: KmacVector[] = [
     output: '31a44527b4ed9f5c6101d11de6d26f0620aa5c341def41299657fe9df1a3b16c',
   },
   {
-    name: 'KMACXOF128 sample #6',
+    name: 'KMACXOF128 sample #3',
     strength: 128,
     xof: true,
     keyHex: SAMPLE_KEY_HEX,
@@ -230,7 +230,7 @@ export const KMAC_VECTORS: KmacVector[] = [
     output: '47026c7cd793084aa0283c253ef658490c0db61438b8326fe9bddf281b83ae0f',
   },
   {
-    name: 'KMACXOF256 sample #7',
+    name: 'KMACXOF256 sample #4',
     strength: 256,
     xof: true,
     keyHex: SAMPLE_KEY_HEX,
@@ -241,7 +241,18 @@ export const KMAC_VECTORS: KmacVector[] = [
       '1755133f1534752aad0748f2c706fb5c784512cab835cd15676b16c0c6647fa96faa7af634a0bf8ff6df39374fa00fad9a39e322a7c92065a64eb1fb0801eb2b',
   },
   {
-    name: 'KMACXOF256 sample #9',
+    name: 'KMACXOF256 sample #5',
+    strength: 256,
+    xof: true,
+    keyHex: SAMPLE_KEY_HEX,
+    dataHex: SAMPLE_DATA_200_HEX,
+    customization: '',
+    outputBits: 512,
+    output:
+      'ff7b171f1e8a2b24683eed37830ee797538ba8dc563f6da1e667391a75edc02ca633079f81ce12a25f45615ec89972031d18337331d24ceb8f8ca8e6a19fd98b',
+  },
+  {
+    name: 'KMACXOF256 sample #6',
     strength: 256,
     xof: true,
     keyHex: SAMPLE_KEY_HEX,
