@@ -21,7 +21,7 @@ The primitives are real and hand-rolled, not called out to a library:
 | **Keccak-f[1600]** | FIPS 202 §3.2 | — | — |
 | **SHA3-256** | FIPS 202 | 136 / 64 bytes | `0x06` |
 | **SHAKE128 / SHAKE256** | FIPS 202 | 168 / 32, 136 / 64 bytes | `0x1F` |
-| **cSHAKE128 / cSHAKE256** | SP 800-185 §3 | as SHAKE | `0x04` |
+| **cSHAKE128 / cSHAKE256** | SP 800-185 §3 | as SHAKE | `0x04` with nonempty N or S, otherwise SHAKE’s `0x1F` |
 | **KMAC128 / KMAC256 / KMACXOF** | SP 800-185 §4 | as cSHAKE | `0x04` |
 
 Plus the SP 800-185 encoding functions the last two are framed with: `left_encode`,
@@ -71,7 +71,7 @@ library for anything real.
    `S` by one character is shown producing an unrelated output. Separately and always, the page
    computes cSHAKE with empty `N` and `S` against plain SHAKE and shows the byte-level equality
    that proves the spec's fallback. The framed prefix cSHAKE absorbs is displayed as hex.
-5. **Stage 4 — KMAC128/256 + KMACXOF (break it yourself).** Type a key and a message, sign it,
+5. **Stage 4 — KMAC128/256 + KMACXOF (break it yourself).** Type a key and a message, compute the tag,
    verify it — then tamper and verify again, and watch the real verifier reject. Also computes
    output-length binding live: KMAC at 256 and 512 bits produces unrelated tags, while KMACXOF at
    the two lengths produces one as a prefix of the other.
@@ -99,7 +99,7 @@ library for anything real.
 https://systemslibrarian.github.io/crypto-lab-kmac-gate/
 
 Type a message and watch one digest, one extendable output, and one domain-separated output come
-out of the same state. Then key it: sign a message, verify it, tamper with one character, and
+from separate runs of the same permutation. Compute a KMAC tag, verify it, change one character, and
 verify again to see the real primitive reject. Every number on the page is computed in your
 browser during that run.
 
@@ -114,8 +114,9 @@ browser during that run.
 - **Assuming a longer KMAC tag contains the shorter one.** It does not: KMAC absorbs
   `right_encode(L)`, so the requested length changes the input. KMACXOF is the variant with the
   prefix property. Stage 4 computes both.
-- **Reading an accepted tag as more than it is.** Verification establishes that these exact bytes
-  were authenticated under this exact key at these exact parameters. It says nothing about who
+- **Reading an accepted tag as more than it is.** Verification compares the supplied tag with the tag recomputed
+  over the current key, message bytes and parameters. An empty key gives a reproducible value
+  anyone can compute. Authentication relies on a secret key. It says nothing about who
   computed it, when, or whether the message should be acted on — a replayed old message and tag
   verify perfectly.
 - **Trusting a comparison that returns early.** A verifier that stops at the first mismatching

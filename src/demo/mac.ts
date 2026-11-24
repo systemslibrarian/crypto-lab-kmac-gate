@@ -32,6 +32,7 @@ export type RejectionCause =
   | 'message-differs'
   | 'key-differs'
   | 'length-differs'
+  | 'xof-length-differs'
   | 'customization-differs'
   | 'strength-differs'
   | 'variant-differs'
@@ -79,7 +80,8 @@ export function verifyMessage(
     if (signedUnder) {
       if (!sameBytes(signedUnder.message, verifierParams.message)) cause = 'message-differs'
       else if (!sameBytes(signedUnder.key, verifierParams.key)) cause = 'key-differs'
-      else if (signedUnder.outputBits !== verifierParams.outputBits) cause = 'length-differs'
+      else if (signedUnder.outputBits !== verifierParams.outputBits && signedUnder.xof === verifierParams.xof)
+        cause = verifierParams.xof ? 'xof-length-differs' : 'length-differs'
       else if (!sameBytes(signedUnder.customization, verifierParams.customization))
         cause = 'customization-differs'
       else if (signedUnder.strength !== verifierParams.strength) cause = 'strength-differs'
@@ -105,6 +107,7 @@ export const CAUSE_TEXT: Record<RejectionCause, string> = {
   'message-differs': 'the message bytes changed after the tag was made',
   'key-differs': 'the key changed after the tag was made',
   'length-differs': 'the requested output length changed — KMAC binds L into the tag',
+  'xof-length-differs': 'the requested output length changed. KMACXOF absorbs zero for the length field and continues the same output stream',
   'customization-differs': 'the customization string S changed',
   'strength-differs': 'the strength changed (KMAC128 vs KMAC256)',
   'variant-differs': 'the variant changed (KMAC vs KMACXOF)',
@@ -118,7 +121,7 @@ export const CAUSE_TEXT: Record<RejectionCause, string> = {
  * from it. Overstating this is the single most common defect in the fleet.
  */
 export const VERIFY_LEARNS = [
-  'the tag was produced under this exact key, over these exact message bytes, at these exact parameters',
+  'the presented tag matches the tag recomputed from the displayed key, message bytes and parameters; evidence of a secret key holder depends on the key actually being secret',
 ] as const
 
 export const VERIFY_DOES_NOT_LEARN = [

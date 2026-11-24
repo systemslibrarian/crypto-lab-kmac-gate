@@ -356,7 +356,9 @@ export function mount(root: HTMLElement): void {
         verdict(
           'ok',
           'Tag accepted — recomputed tag matches, byte for byte',
-          'The verifier recomputed KMAC over the message on screen under the key on screen and got exactly the held tag. That means these bytes were authenticated by someone holding this key. Because that key is shared, it does not identify who — you hold it too — and it does not say when, so a replayed old message and tag would also verify.',
+          state.held.params.key.length === 0
+            ? 'The empty key produced the same tag. Anyone can compute this value from the public inputs, so the match supplies no evidence of a secret key holder.'
+            : 'The recomputed tag matches. If the key is secret, this is evidence that a key holder authenticated these bytes. It does not identify who used the key or say when. A replayed message and tag would also verify.',
         ),
         el('p', { class: 'out-label', text: 'Recomputed by the verifier' }),
         el(
@@ -367,12 +369,18 @@ export function mount(root: HTMLElement): void {
       )
       return
     }
+    const heldBytes = state.held.presentedTag.length
+    const recomputedBytes = outcome.recomputed.length
+    const commonBytes = Math.min(heldBytes, recomputedBytes)
+    const comparison = outcome.divergesAtByte === commonBytes
+      ? `The first ${commonBytes} bytes match. The held tag is ${heldBytes} bytes and the recomputed tag is ${recomputedBytes} bytes. Verification requires equal lengths.`
+      : `The first differing byte is at index ${outcome.divergesAtByte} (counting from zero).`
     replace(
       kmacVerdictOut,
       verdict(
         'bad',
         'Tag rejected — the recomputed tag does not match',
-        `The verifier recomputed the tag from what is on screen and got different bytes, diverging at byte ${outcome.divergesAtByte}. Cause: ${outcome.cause ? CAUSE_TEXT[outcome.cause] : 'unknown'}.`,
+        `${comparison} Cause: ${outcome.cause ? CAUSE_TEXT[outcome.cause] : 'unknown'}.`,
       ),
       el('p', { class: 'out-label', text: 'Recomputed by the verifier' }),
       el(

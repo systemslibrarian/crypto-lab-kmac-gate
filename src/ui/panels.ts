@@ -466,7 +466,7 @@ export function renderKmacLive(report: RunReport): HTMLElement {
     spongeBar(
       k.trace.rateBytes,
       k.trace.capacityBytes,
-      `KMAC${k.params.strength} rides cSHAKE${k.params.strength}: the key is absorbed in its own padded block, then your message, then the requested output length. Two separate properties are at work. The framing (bytepad, encode_string) makes the encoding unambiguous, so no two different inputs can frame to the same bytes. Separately, the ${k.trace.capacityBytes * 8}-bit capacity is never emitted, so a tag holder cannot reconstruct the state — and it is that second property alone that removes the need for an HMAC-style outer hash.`,
+      `KMAC${k.params.strength} rides cSHAKE${k.params.strength}: the framed key is padded to a whole number of rate blocks, followed by your message and ${k.params.xof ? 'right_encode(0)' : 'the encoded output length'}. Two separate properties are at work. The framing (bytepad, encode_string) makes the encoding unambiguous, so no two different inputs can frame to the same bytes. Separately, the ${k.trace.capacityBytes * 8}-bit capacity is never emitted, so a tag holder cannot reconstruct the state — and it is that second property alone that removes the need for an HMAC-style outer hash.`,
     ),
     el(
       'ul',
@@ -499,7 +499,7 @@ export function renderKmacLive(report: RunReport): HTMLElement {
         {
           equalTitle: 'A truncation — the shorter tag is a prefix of the longer',
           differTitle: 'These two outputs differ — the shorter tag is not a prefix of the longer',
-          note: `The cause is visible above: KMAC absorbs right_encode(${k.params.outputBits}), so changing the requested length changes the absorbed input rather than just the slice taken from it`,
+          note: `These fixed-length KMAC runs absorb right_encode(${k.lengthBinding.shortBits}) and right_encode(${k.lengthBinding.longBits}). The two runs therefore absorb different inputs`,
         },
       ),
       byteComparison(

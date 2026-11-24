@@ -6,7 +6,7 @@ scoping decision, not an oversight.
 ## Unbuilt SP 800-185 siblings
 
 - **TupleHash / TupleHashXOF (SP 800-185 §5).** Hashes a *sequence* of strings unambiguously, so
-  that `("abc", "d")` and `("ab", "cd")` cannot collide — the same `encode_string` framing shown
+  that `("abc", "d")` and `("ab", "cd")` have different encodings even though their concatenations are identical — the same `encode_string` framing shown
   in stage 3, applied per element. Not built here.
 - **ParallelHash / ParallelHashXOF (SP 800-185 §6).** Splits a long input into fixed-size blocks,
   hashes each independently with cSHAKE, then hashes the concatenated chaining values. Built for

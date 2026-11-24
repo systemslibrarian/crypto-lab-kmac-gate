@@ -435,6 +435,32 @@ test('a changed output length is rejected and named', async ({ page }) => {
   await expect(page.locator('#kmac-verdict-panel .verdict-bad')).toContainText('KMAC binds L into the tag')
 })
 
+test('KMACXOF rejects unequal tag lengths and shows the shared bytes in both directions', async ({ page }) => {
+  await page.locator('#kmac-variant').selectOption('xof')
+  for (const [heldLength, nextLength] of [['256', '512'], ['512', '256']]) {
+    await page.locator('#kmac-length').selectOption(heldLength)
+    await page.getByRole('button', { name: 'Compute tag' }).click()
+    const held = await hexOf(page, '#held-tag')
+    await page.locator('#kmac-length').selectOption(nextLength)
+    await page.getByRole('button', { name: 'Verify tag' }).click()
+    const recomputed = await hexOf(page, '#recomputed-tag')
+    expect(held.slice(0, 64)).toBe(recomputed.slice(0, 64))
+    const verdict = page.locator('#kmac-verdict-panel .verdict-bad')
+    await expect(verdict).toContainText('The first 32 bytes match')
+    await expect(verdict).toContainText('KMACXOF absorbs zero')
+    await expect(verdict).toContainText(`held tag is ${Number(heldLength) / 8} bytes`)
+    await expect(verdict).toContainText(`recomputed tag is ${Number(nextLength) / 8} bytes`)
+  }
+})
+
+test('an empty key match gives no evidence of a secret key holder', async ({ page }) => {
+  await page.locator('#kmac-key').fill('')
+  await page.getByRole('button', { name: 'Compute tag' }).click()
+  await page.getByRole('button', { name: 'Verify tag' }).click()
+  expect(await hexOf(page, '#held-tag')).toBe(await hexOf(page, '#recomputed-tag'))
+  await expect(page.locator('#kmac-verdict-panel .verdict-ok')).toContainText('Anyone can compute this value')
+})
+
 test('an appended message is rejected — no length extension', async ({ page }) => {
   await page.locator('button:has-text("Compute tag")').click()
   const original = await inputValue(page, '#kmac-message')

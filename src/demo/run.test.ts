@@ -54,7 +54,7 @@ describe('one run report drives the whole page', () => {
     )
   })
 
-  it('the four modes pad with four different domain suffixes', () => {
+  it('the four mode labels report the suffix used by each framing', () => {
     const report = run({ cshakeCustom: 'Email Signature' })
     const suffixes = report.suffixes.map((s) => s.suffix)
     expect(suffixes).toEqual([0x06, 0x1f, 0x04, 0x04])
