@@ -284,7 +284,7 @@ export function renderShakeOutput(report: RunReport): HTMLElement {
         {
           equalTitle: 'Same bytes — the longer output continues the same squeeze',
           differTitle: 'Different bytes — this would mean the XOF rehashed',
-          note: 'Asking for more output never changes what you already had',
+          note: 'Asking for more output preserves the prefix. If two uses need independent values, give them distinct purpose labels through a construction such as cSHAKE.',
         },
       ),
       el('p', {
@@ -566,14 +566,14 @@ export function renderContrastPanel(
       row('Internal state', `${facts.naive.internalStateBits} bits`, `${facts.kmac.internalStateBits} bits`),
       row('Tag width', `${facts.naive.digestBits} bits`, `${facts.kmac.digestBits} bits`),
       row(
-        'State still hidden from a tag holder',
+        'State bits outside the directly emitted portion per output block',
         `${facts.naive.hiddenStateBits} bits`,
         `${facts.kmac.hiddenStateBits} bits`,
       ),
       row(
         'Can a tag holder resume the computation?',
         facts.naive.resumableFromDigest ? 'Yes — the tag IS the state' : 'No',
-        facts.kmac.resumableFromDigest ? 'Yes' : 'No — the capacity was never output',
+        facts.kmac.resumableFromDigest ? 'Yes' : 'No — the tag omits the capacity of each state',
       ),
     ),
   )

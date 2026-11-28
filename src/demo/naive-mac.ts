@@ -32,7 +32,7 @@ export interface ConstructionFacts {
   /** Bits the tag/digest exposes. */
   digestBits: number
   /**
-   * Bits of internal state that remain unknown to someone holding the tag.
+   * State bits outside the portion directly emitted in a squeeze state.
    * For Merkle–Damgård this is zero: the digest IS the chaining state.
    */
   hiddenStateBits: number
@@ -63,19 +63,19 @@ export function naiveFacts(): ConstructionFacts {
 /**
  * Facts about KMAC at a given strength and output length.
  *
- * The capacity is never absorbed into and never squeezed out. Whatever the tag
- * reveals about the rate, those capacity bits stay unknown, so there is no
- * state to resume from.
+ * Each output block reads from the rate of one state. A permutation separates
+ * successive blocks. Capacity is not directly emitted by a squeeze.
  */
 export function kmacFacts(strength: Strength, outputBits: number): ConstructionFacts {
-  const capacityBits = (200 - shakeRate(strength)) * 8
+  const rateBytes = shakeRate(strength)
+  const capacityBits = (200 - rateBytes) * 8
   return {
     name: `KMAC${strength}`,
     internalStateBits: 1600,
     digestBits: outputBits,
     hiddenStateBits: capacityBits,
     resumableFromDigest: false,
-    note: `The tag is a slice of the rate; the ${capacityBits}-bit capacity is never output. Without those bits there is no state to resume, so appending to the message does not yield a valid tag.`,
+    note: `Each squeeze state supplies up to ${rateBytes} output bytes from its rate. Longer tags draw from successive states, with a permutation between blocks. The ${capacityBits}-bit capacity is never output directly. This count describes the state layout. Authentication strength also depends on the key and tag length.`,
   }
 }
 

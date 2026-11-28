@@ -37,6 +37,14 @@ describe('structural contrast — the numbers come from the parameters in use', 
     }
   })
 
+  it('describes multi-block output using the selected sponge rate', () => {
+    expect(kmacFacts(128, 169 * 8).note).toContain('168 output bytes')
+    const long = kmacFacts(256, 137 * 8)
+    expect(long.note).toContain('136 output bytes')
+    expect(long.note).toContain('permutation between blocks')
+    expect(long.hiddenStateBits).toBe(512)
+  })
+
   it('the reported digest width tracks the requested output length', () => {
     expect(kmacFacts(128, 256).digestBits).toBe(256)
     expect(kmacFacts(128, 512).digestBits).toBe(512)

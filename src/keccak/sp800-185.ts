@@ -134,11 +134,9 @@ export interface KmacParams {
  * newX = bytepad(encode_string(K), rate) || X || right_encode(L or 0)
  * tag  = cSHAKE(newX, L, "KMAC", S)
  *
- * Note what is NOT here: no inner/outer hash, no ipad/opad, no second pass.
- * HMAC needs that nesting because a Merkle–Damgård digest *is* the compression
- * state, so H(K‖M) can be resumed by anyone holding it. A sponge's digest is a
- * slice of the rate while the capacity stays hidden, so keying it is just
- * absorbing the key first.
+ * KMAC frames the key, message and requested length (or XOF marker) and uses
+ * the cSHAKE function name KMAC. Each squeeze block reads the rate. Longer
+ * outputs consume successive permutation states.
  */
 export function kmac(params: KmacParams, observer?: SpongeObserver): Uint8Array {
   const { strength, key, message, outputBits, customization, xof } = params
