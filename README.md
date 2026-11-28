@@ -82,11 +82,8 @@ library for anything real.
 
 ## When to Use It
 
-- **Use KMAC** when you want a MAC or a KDF from a Keccak-family primitive: it is a NIST-approved
-  construction (SP 800-185), it needs no HMAC-style nesting, and its customization string gives
-  you domain separation for free.
-- **Use KMACXOF** when you need arbitrary-length key material and want outputs at different
-  lengths to extend one another.
+- **KMAC** authenticates a message with a secret key and a customization string. Its requested tag length is part of the computation.
+- **KMACXOF** illustrates an extendable stream. For derived keys, KDF-KMAC passes the context as the message, the output length in bits, and the purpose label as the customization string. [NIST SP 800-108 Rev. 1, Figure 4](https://doi.org/10.6028/NIST.SP.800-108r1-upd1)
 - **Use cSHAKE** when two subsystems share a hash function and you need their outputs to be
   independent — the customization string makes each its own function.
 - **Do NOT use `SHA-256(key ‖ message)` as a MAC.** Merkle–Damgård emits its chaining state as the
@@ -125,9 +122,7 @@ browser during that run.
 
 ## Real-World Usage
 
-KMAC is specified in NIST SP 800-185 as a PRF and keyed hash with variable-length output, which
-makes it the natural MAC or KDF in Keccak-based designs where a SHA-3-family primitive is already
-present. It is not a CNSA 2.0 algorithm. NSA's
+NIST SP 800-185 defines KMAC as a variable-length MAC and pseudorandom function. SP 800-108 uses it in KDF-KMAC with an input key, context, length and label. It is not a CNSA 2.0 algorithm. NSA's
 [CNSA 2.0 FAQ](https://media.defense.gov/2022/Sep/07/2003071836/-1/-1/0/CSI_CNSA_2.0_FAQ_.PDF)
 (October 2026, Ver. 2.2) answers "Can I use SHA-3 as a hash?" with "No, neither SHA-3 nor SHAKE
 are approved for use in CNSA 2.0 as a general-purpose hash algorithm", answers "No" to using

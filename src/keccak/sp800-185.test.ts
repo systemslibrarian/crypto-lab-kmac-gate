@@ -176,7 +176,14 @@ describe('KMAC — SP 800-185 known-answer tests', () => {
   })
 
   it('rejects output lengths it cannot honestly produce', () => {
-    expect(() => kmac({ ...base, outputBits: 0 })).toThrow()
+    for (const strength of [128, 256] as const) {
+      for (const xof of [false, true]) {
+        expect(kmac({ ...base, strength, xof, outputBits: 0 })).toEqual(new Uint8Array(0))
+      }
+    }
+    for (const outputBits of [NaN, Infinity, 0.5, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(() => kmac({ ...base, outputBits })).toThrow()
+    }
     expect(() => kmac({ ...base, outputBits: -8 })).toThrow()
     expect(() => kmac({ ...base, outputBits: 12 })).toThrow(/whole-byte/)
   })

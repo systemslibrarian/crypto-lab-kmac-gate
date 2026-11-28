@@ -510,7 +510,7 @@ export function renderKmacLive(report: RunReport): HTMLElement {
         {
           equalTitle: 'A prefix — the XOF variant just keeps squeezing',
           differTitle: 'These two outputs differ — unexpected for the XOF variant',
-          note: 'KMACXOF absorbs right_encode(0) whatever length you ask for, so the longer run continues the same squeeze. Use KMACXOF to draw arbitrary key material; use KMAC when the length is part of what you are authenticating',
+          note: 'KMACXOF absorbs right_encode(0) whatever length you ask for, so the longer run continues the same squeeze. This is a prefix experiment. For key derivation, SP 800-108 KDF-KMAC computes KMAC with the input key, context as its message, requested bit length, and a purpose label as its customization string.',
         },
       ),
     ),

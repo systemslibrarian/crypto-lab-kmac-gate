@@ -142,8 +142,8 @@ export interface KmacParams {
  */
 export function kmac(params: KmacParams, observer?: SpongeObserver): Uint8Array {
   const { strength, key, message, outputBits, customization, xof } = params
-  if (!Number.isSafeInteger(outputBits) || outputBits <= 0) {
-    throw new Error('KMAC output length must be a positive whole number of bits')
+  if (!Number.isSafeInteger(outputBits) || outputBits < 0) {
+    throw new Error('KMAC output length must be a nonnegative whole number of bits')
   }
   if (outputBits % 8 !== 0) {
     throw new Error('this demo only produces whole-byte KMAC outputs')
