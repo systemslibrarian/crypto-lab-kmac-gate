@@ -193,6 +193,10 @@ export function mount(root: HTMLElement): void {
   // --- stage 4 controls ---------------------------------------------------
   const keyInput = el('input', { type: 'text', spellcheck: 'false' }) as HTMLInputElement
   keyInput.value = state.inputs.kmacKey
+  const keyHint = el('span', { id: 'kmac-key-hint', class: 'hint' })
+  const keyField = field('kmac-key', 'Key (UTF-8 text)', keyInput)
+  keyInput.setAttribute('aria-describedby', keyHint.id)
+  keyField.append(keyHint)
   const kmacMessageInput = el('textarea', { rows: '2', spellcheck: 'false' }) as HTMLTextAreaElement
   kmacMessageInput.value = state.inputs.kmacMessage
   const kmacStrengthSelect = select(
@@ -232,7 +236,7 @@ export function mount(root: HTMLElement): void {
     el(
       'div',
       { class: 'controls' },
-      field('kmac-key', 'Key (UTF-8 text)', keyInput, 'Session-only: never stored, never sent.'),
+      keyField,
       field('kmac-strength', 'Strength', kmacStrengthSelect),
       field('kmac-variant', 'Variant', kmacVariantSelect),
       field('kmac-length', 'Output length L', kmacLengthSelect),
@@ -437,6 +441,12 @@ export function mount(root: HTMLElement): void {
     verifyBtn.disabled = state.signed === null
     resetBtn.disabled = state.signed === null && state.held === null
     shakeLengthOut.textContent = `${state.inputs.shakeBytes} bytes`
+
+    const keyBytes = report.kmacStage.params.key.length
+    const targetBytes = state.inputs.kmacStrength / 8
+    keyHint.textContent = `Entered key: ${keyBytes} UTF-8 bytes. ` +
+      (keyBytes < targetBytes ? `Shorter than the ${targetBytes}-byte target. ` : '') +
+      `For a ${state.inputs.kmacStrength}-bit key, generate ${targetBytes} random bytes. A phrase’s byte count measures its encoding only. Use a public example here.`
 
     renderTagPanel()
     renderVerdictPanel()

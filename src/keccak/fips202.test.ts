@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { Sponge } from './sponge'
 import { concat, toHex, utf8 } from './bytes'
 import { sha3_256, shake, shakeContinuation } from './fips202'
 import { SHA3_256_VECTORS, SHAKE_VECTORS } from './vectors'
@@ -71,4 +72,19 @@ describe('SHAKE — FIPS 202 known-answer tests', () => {
   it('a zero-length squeeze is empty, not an error', () => {
     expect(shake(128, utf8('x'), 0).length).toBe(0)
   })
+})
+
+it('rejects invalid lengths without advancing the squeeze cursor', () => {
+  const sponge = new Sponge(168)
+  sponge.absorb(utf8('sample'))
+  sponge.finalize(0x1f)
+  const first = sponge.squeeze(5)
+  for (const length of [NaN, Infinity, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    expect(() => sponge.squeeze(length)).toThrow(RangeError)
+  }
+  expect(concat(first, sponge.squeeze(170))).toEqual(shake(128, utf8('sample'), 175))
+})
+
+it('rejects unsupported strengths from untyped callers', () => {
+  expect(() => shake(192 as 128, utf8('sample'), 1)).toThrow(/128 or 256/)
 })

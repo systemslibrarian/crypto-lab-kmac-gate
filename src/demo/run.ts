@@ -42,7 +42,7 @@ export const DEFAULT_INPUTS: DemoInputs = {
   cshakeStrength: 128,
   cshakeName: '',
   cshakeCustom: 'Email Signature',
-  kmacKey: 'shared-key-2026',
+  kmacKey: 'public demo phrase',
   kmacMessage: 'transfer 100 to alice',
   kmacStrength: 128,
   kmacOutputBits: 256,

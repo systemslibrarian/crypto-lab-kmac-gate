@@ -135,7 +135,9 @@ export class Sponge {
    */
   squeeze(length: number): Uint8Array {
     if (!this.squeezing) throw new Error('finalize() before squeezing')
-    if (length < 0) throw new Error('output length must not be negative')
+    if (!Number.isSafeInteger(length) || length < 0) {
+      throw new RangeError('Output length must be a nonnegative safe integer in bytes')
+    }
     const out = new Uint8Array(length)
     let produced = 0
     while (produced < length) {

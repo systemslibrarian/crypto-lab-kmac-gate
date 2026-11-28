@@ -618,3 +618,17 @@ test('there is exactly one h1 and one banner landmark', async ({ page }) => {
   await expect(page.locator('h1')).toHaveCount(1)
   await expect(page.locator('[role="banner"]')).toHaveCount(1)
 })
+
+test('the key hint follows the UTF-8 bytes and selected strength', async ({ page }) => {
+  await page.goto('.')
+  const key = page.locator('#kmac-key')
+  await key.fill('📚'.repeat(4))
+  const hint = page.locator('#kmac-key-hint')
+  await expect(hint).toContainText('16 UTF-8 bytes')
+  await expect(hint).not.toContainText('Shorter than')
+  await page.locator('#kmac-strength').selectOption('256')
+  await expect(hint).toContainText('Shorter than the 32-byte target')
+  await key.fill('📚'.repeat(8))
+  await expect(hint).toContainText('32 UTF-8 bytes')
+  await expect(hint).not.toContainText('Shorter than')
+})

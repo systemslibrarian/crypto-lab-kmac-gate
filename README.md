@@ -159,7 +159,7 @@ removed here, in KNOWN-GAPS.md and in the page's scope panel.
 ```bash
 npm ci
 npm run dev            # http://localhost:5173/crypto-lab-kmac-gate/
-npm test               # 257 unit tests, including 21 spec KATs
+npm test               # unit tests, including 21 spec KATs
 npm run build          # tsc --noEmit && vite build
 npm run test:browser   # 53 Playwright tests: axe WCAG gate + theme contract + claims suite
 ```
@@ -180,7 +180,7 @@ ships.
 
 ## Build & Verify
 
-**257 unit tests (Vitest), of which 21 are spec known-answer tests.**
+**Vitest runs the unit tests, including 21 spec known-answer tests.**
 
 | Suite | File | What it covers |
 | --- | --- | --- |
@@ -195,7 +195,7 @@ ships.
 `js-sha3` and `node:crypto` are **test-only oracles**. Neither is imported by the app bundle,
 which is hand-rolled down to the permutation.
 
-**53 browser tests (Playwright).** `e2e/a11y.spec.ts` runs `@axe-core/playwright` against the
+**Browser tests (Playwright).** `e2e/a11y.spec.ts` runs `@axe-core/playwright` against the
 production build for zero WCAG 2.1 A/AA violations across **six interaction states** (first
 paint, mid-trace, cSHAKE fallback, tag accepted, verdict retired, tag rejected), plus an
 arithmetic contrast sweep that measures every text node against the surface it

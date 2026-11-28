@@ -32,7 +32,9 @@ export function rateBytesForCapacity(capacityBits: number): number {
 
 /** SHAKE rate: 168 bytes at 128-bit strength, 136 at 256-bit. */
 export function shakeRate(strength: Strength): number {
-  return strength === 128 ? 168 : 136
+  if (strength === 128) return 168
+  if (strength === 256) return 136
+  throw new RangeError('Choose a strength of 128 or 256 bits')
 }
 
 /** SHA3-256: 136-byte rate, 512-bit capacity, 32-byte digest. */
