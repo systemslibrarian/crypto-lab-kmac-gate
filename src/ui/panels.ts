@@ -466,13 +466,15 @@ export function renderKmacLive(report: RunReport): HTMLElement {
     spongeBar(
       k.trace.rateBytes,
       k.trace.capacityBytes,
-      `KMAC${k.params.strength} rides cSHAKE${k.params.strength}: the framed key is padded to a whole number of rate blocks, followed by your message and ${k.params.xof ? 'right_encode(0)' : 'the encoded output length'}. Two separate properties are at work. The framing (bytepad, encode_string) makes the encoding unambiguous, so no two different inputs can frame to the same bytes. Separately, the ${k.trace.capacityBytes * 8}-bit capacity is never emitted, so a tag holder cannot reconstruct the state — and it is that second property alone that removes the need for an HMAC-style outer hash.`,
+      `KMAC${k.params.strength} rides cSHAKE${k.params.strength}: the framed key is padded to a whole number of rate blocks, followed by your message and ${k.params.xof ? 'right_encode(0)' : 'the encoded output length'}. The encoded key length marks the key boundary. Fixed-length KMAC binds the requested tag length. KMACXOF uses the zero suffix for every length. Each output block reads the rate portion of the state. The ${k.trace.capacityBytes * 8} capacity bits are never output directly. SP 800-185 specifies this keyed cSHAKE construction as a MAC without an outer hash.`,
     ),
     el(
       'ul',
       { class: 'kv', role: 'list' },
       el('li', { role: 'listitem' }, 'Key block: ', el('b', { id: 'kmac-keyblock', text: `${k.framing.keyBlock.length} bytes` })),
       el('li', { role: 'listitem' }, 'Length suffix: ', el('b', { id: 'kmac-suffix', text: toHex(k.framing.lengthSuffix) })),
+      el('li', { role: 'listitem', id: 'kmac-tag-strength' },
+        `This tag has ${k.params.outputBits} bits. With a uniformly random secret key, its generic authentication strength is at most ${Math.min(k.params.strength, k.params.outputBits, k.params.key.length * 8)} bits for the selected variant, key length and tag length. A typed phrase can be much easier to guess.`),
       el('li', { role: 'listitem' }, 'This tag cost: ', el('b', { id: 'kmac-perms', text: String(k.operationCalls) }), ' permutation calls'),
     ),
     el(
@@ -480,7 +482,7 @@ export function renderKmacLive(report: RunReport): HTMLElement {
       {},
       el('summary', { text: 'What KMAC actually absorbs' }),
       el('p', {
-        text: `bytepad(encode_string(K), ${k.trace.rateBytes}) ‖ message ‖ right_encode(${k.params.xof ? 0 : k.params.outputBits}) — and the whole thing goes into cSHAKE with the function name "KMAC". There is no inner and outer hash, because there is nothing to defend against by nesting.`,
+        text: `bytepad(encode_string(K), ${k.trace.rateBytes}) ‖ message ‖ right_encode(${k.params.xof ? 0 : k.params.outputBits}) — and the whole thing goes into cSHAKE with the function name "KMAC". The encoded key and the KMAC function name are part of the construction specified in SP 800-185.`,
       }),
       hexBox(k.framing.lengthSuffix, 'The right_encode length suffix'),
     ),

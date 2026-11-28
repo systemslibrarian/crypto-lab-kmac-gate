@@ -12,12 +12,9 @@
  * included, and that diffusion is what makes the sponge a hash rather than a
  * bookkeeping exercise.
  *
- * The security property is the second half only: the capacity is never
- * EMITTED. A holder of the output learns the rate bytes they were given and
- * nothing about the capacity, so they cannot reconstruct the state and resume
- * absorbing from it. That is why a keyed sponge needs no HMAC wrapper — not
- * because the capacity is untouched, but because it is unrecoverable from the
- * output.
+ * Capacity lanes are never read directly as output. Later permutations mix the
+ * entire state again. KMAC's authentication claims
+ * also depend on the keyed construction, key entropy and tag length.
  *
  * Squeezing is INCREMENTAL: `squeeze(16)` twice returns exactly the same bytes
  * as `squeeze(32)` once. That is the literal meaning of "longer output is a

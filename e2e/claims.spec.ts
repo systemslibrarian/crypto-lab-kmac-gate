@@ -106,6 +106,13 @@ test('KMAC256 at 512 bits also matches', async ({ page }) => {
   const message = await inputValue(page, '#kmac-message')
   const shown = await hexOf(page, '#held-tag')
   expect(shown).toBe(kmac256(Buffer.from(key, 'utf8'), Buffer.from(message, 'utf8'), 512, ''))
+  const strength = page.locator('#kmac-tag-strength')
+  await page.locator('#kmac-key').fill('k'.repeat(32))
+  await expect(strength).toContainText('at most 256 bits')
+  await page.locator('#kmac-strength').selectOption('128')
+  await expect(strength).toContainText('at most 128 bits')
+  await page.locator('#kmac-key').fill('é')
+  await expect(strength).toContainText('at most 16 bits')
 })
 
 test('the naive MAC panel shows a real SHA-256 of key ‖ message', async ({ page }) => {
